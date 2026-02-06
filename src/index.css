@@ -1,0 +1,212 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-950 transition-colors duration-200;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-slate-900 dark:text-white;
+  }
+
+  /* Form inputs dark mode */
+  input,
+  textarea,
+  select {
+    @apply dark:bg-slate-800 dark:border-slate-600 dark:text-white dark:placeholder-slate-400;
+  }
+
+  /* Tables dark mode */
+  table {
+    @apply dark:text-slate-200;
+  }
+
+  th {
+    @apply dark:text-slate-300 dark:bg-slate-800;
+  }
+
+  td {
+    @apply dark:text-slate-200 dark:border-slate-700;
+  }
+
+  /* Links */
+  a {
+    @apply dark:text-blue-400;
+  }
+}
+
+@layer components {
+
+  /* Card component with dark mode */
+  .card-dark {
+    @apply bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100;
+  }
+
+  /* Button variants */
+  .btn-primary {
+    @apply bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600;
+  }
+
+  .btn-secondary {
+    @apply bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200;
+  }
+
+  /* Modal overlay */
+  .modal-overlay {
+    @apply bg-black/50 dark:bg-black/70;
+  }
+
+  /* Sidebar dark mode */
+  .sidebar-dark {
+    @apply bg-slate-900 dark:bg-slate-950 text-white;
+  }
+
+  /* Badge variants for dark mode */
+  .badge-success {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300;
+  }
+
+  .badge-warning {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300;
+  }
+
+  .badge-error {
+    @apply bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300;
+  }
+
+  /* Text utilities for dark mode */
+  .text-auto {
+    @apply text-slate-800 dark:text-slate-100;
+  }
+
+  .text-muted-auto {
+    @apply text-slate-500 dark:text-slate-400;
+  }
+
+  .text-heading-auto {
+    @apply text-slate-900 dark:text-white;
+  }
+
+  /* Background utilities */
+  .bg-card-auto {
+    @apply bg-white dark:bg-slate-800;
+  }
+
+  .bg-surface-auto {
+    @apply bg-slate-50 dark:bg-slate-900;
+  }
+
+  .bg-muted-auto {
+    @apply bg-slate-100 dark:bg-slate-800;
+  }
+
+  /* Border utilities */
+  .border-auto {
+    @apply border-slate-200 dark:border-slate-700;
+  }
+
+  .divide-auto>*+* {
+    @apply border-slate-200 dark:border-slate-700;
+  }
+}
+
+@layer utilities {
+
+  /* Custom scrollbar for dark mode */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-slate-100 dark:bg-slate-800 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-600 rounded-full hover:bg-slate-400 dark:hover:bg-slate-500;
+  }
+
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection colors */
+::selection {
+  @apply bg-blue-500 text-white;
+}

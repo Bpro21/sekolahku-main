@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Match the standard path structure
+    match /artifacts/{appId} {
+        
+        // 1. User Documents (KK, Akta, etc.)
+        // Path: /artifacts/{appId}/users/{userId}/...
+        match /users/{userId}/{allPaths=**} {
+            // Admins and the User themselves can read/download
+            allow read: if request.auth != null && (request.auth.uid == userId || request.auth.token.email.matches('.*admin.*'));
+            
+            // Only the User can upload their own files
+            // (Optional: Add size/contentType checks here if strict validation is needed)
+            allow write: if request.auth != null && request.auth.uid == userId;
+        }
+
+        // 2. Public Assets (Logos, Banners)
+        // Path: /artifacts/{appId}/public/...
+        match /public/{allPaths=**} {
+            // Publicly readable
+            allow read: if true;
+            
+            // Only Admins can upload public assets
+            allow write: if request.auth != null && request.auth.token.email.matches('.*admin.*');
+        }
+    }
+  }
+}

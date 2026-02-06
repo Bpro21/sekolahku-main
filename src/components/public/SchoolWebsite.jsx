@@ -1,0 +1,1068 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    GraduationCap, Users, Calendar, Award, ArrowRight,
+    MapPin, Phone, Mail, Facebook, Instagram, Youtube, Twitter,
+    Menu, X, ChevronRight, Star, CheckCircle, Clock, Home, FileText, BookOpen, DollarSign, HelpCircle, LogIn, LayoutDashboard, Grid, Send, Loader2, Smartphone, User, School, ChevronLeft, Trophy
+} from 'lucide-react';
+
+import FloatingAssistant from './FloatingAssistant';
+import { supabase } from '../../config/supabase';
+import PublicHeader from './PublicHeader';
+
+const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
+    const navigate = useNavigate();
+    const [user, setUser] = useState(propUser || null);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
+    const [activeTab, setActiveTab] = useState('home');
+    const [settings, setSettings] = useState(null);
+    const [apiKey, setApiKey] = useState('');
+    const [isPPDBOpen, setIsPPDBOpen] = useState(false);
+    const [ppdbData, setPpdbData] = useState({ name: '', phone: '', originSchool: '' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [realtimeData, setRealtimeData] = useState('');
+    const [selectedProgram, setSelectedProgram] = useState(null);
+    const [selectedBranchId, setSelectedBranchId] = useState(null);
+
+    const [branches, setBranches] = useState([]);
+    const [registrations, setRegistrations] = useState([]);
+    const [academicYears, setAcademicYears] = useState([]);
+    const [activeAcademicYear, setActiveAcademicYear] = useState(null);
+    const [showPopup, setShowPopup] = useState(false);
+    const [loading, setLoading] = useState(true); // Added loading state
+
+    // Fetch Settings & APIs & Realtime Data (SUPABASE)
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // 1. Fetch Configs & Settings
+                const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 'main').single();
+                if (settingsData) {
+                    setSettings(settingsData);
+                    // Assuming apiKey might be stored in a separate trusted edge function or obscured, 
+                    // but for migration parity we check if it's in settings jsonb or another table
+                    // Here we just hardcode or leave blank if not found in main settings
+                }
+
+                const { data: ayData } = await supabase.from('academic_years').select('*');
+                if (ayData) {
+                    setAcademicYears(ayData);
+                    const active = ayData.find(y => y.is_active) || ayData.find(y => y.is_default) || ayData[0];
+                    setActiveAcademicYear(active);
+                }
+
+                // 2. Fetch Units & Registrations
+                const { data: unitsData } = await supabase.from('units').select('*');
+                const fetchedBranches = unitsData || [];
+                setBranches(fetchedBranches);
+
+                const { data: regsData, count } = await supabase.from('registrations').select('*', { count: 'exact' });
+                const fetchedRegs = regsData || [];
+                setRegistrations(fetchedRegs);
+
+                // 3. Process Data
+                let payInfo = "Belum ada informasi biaya.";
+                // We might need a separate query for payment config if it's complex
+                // For now, assuming standard text or hardcoded
+
+                const branchText = fetchedBranches.map(b => {
+                    const count = fetchedRegs.filter(r => r.unit_selection === b.name || r.unit_id === b.id).length;
+                    return `- Cabang ${b.name}: Kapasitas ${b.quota} Siswa. (Saat ini terdaftar: ${count} siswa).`;
+                }).join('\n');
+
+                const summary = `
+                    DATA REALTIME (DARI DATABASE):
+                    ${payInfo}
+                    
+                    STATUS KUOTA CABANG:
+                    ${branchText}
+                    
+                    INFO LAINNYA:
+                    Total Pendaftar Keseluruhan: ${fetchedRegs.length} Siswa.
+                `;
+                setRealtimeData(summary);
+
+            } catch (e) {
+                console.error("Failed to load public data", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    // Monitor Auth State (SUPABASE)
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            setUser(session?.user || null);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
+    // Handle scroll effect for navbar
+    useEffect(() => {
+        const handleScroll = () => {
+            if (window.scrollY > 20) {
+                setScrolled(true);
+            } else {
+                setScrolled(false);
+            }
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Handle popup display
+    useEffect(() => {
+        if (settings?.landing_page?.popup_enabled && settings?.landing_page?.popup_image) {
+            const popupShown = sessionStorage.getItem('popup_shown');
+            if (settings.landing_page.popup_show_once && popupShown) {
+                return; // Already shown this session
+            }
+            // Delay popup by 1 second for better UX
+            const timer = setTimeout(() => {
+                setShowPopup(true);
+                if (settings.landing_page.popup_show_once) {
+                    sessionStorage.setItem('popup_shown', 'true');
+                }
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [settings]);
+
+    // Auto-select first available level for fee section
+    // Auto-select first available branch for fee section
+    // Auto-select first available branch for fee section
+    useEffect(() => {
+        // Filter branches based on Active Academic Year's unit_ids
+        let availableBranches = branches;
+        if (activeAcademicYear && activeAcademicYear.unit_ids && activeAcademicYear.unit_ids.length > 0) {
+            availableBranches = branches.filter(b => activeAcademicYear.unit_ids.includes(b.id));
+        }
+
+        if (availableBranches.length > 0) {
+            // Only change if currently selected is invalid or null
+            if (!selectedBranchId || !availableBranches.find(b => b.id === selectedBranchId)) {
+                setSelectedBranchId(availableBranches[0].id);
+            }
+        }
+    }, [branches, activeAcademicYear, selectedBranchId]);
+
+    // Navigasi difokuskan untuk PPDB
+    const navLinks = [
+        { name: 'Beranda', href: '#home', icon: Home },
+        { name: 'Alur Daftar', href: '#flow', icon: FileText },
+        { name: 'Program', href: '#programs', icon: BookOpen },
+        { name: 'Biaya', href: '#fees', icon: DollarSign },
+        { name: 'FAQ', href: '#faq', icon: HelpCircle },
+        { name: 'Kontak', href: '#contact', icon: Phone },
+    ];
+
+    // Using settings or defaults
+    // Using settings or defaults
+    const contactWA = settings?.landing_page?.contact_wa || '0812-3456-7890';
+    const contactOffice = settings?.landing_page?.contact_office || '(021) 7788-9900';
+    const contactEmail = settings?.landing_page?.contact_email || 'ppdb@cendekia.sch.id';
+    const schoolAddress = settings?.landing_page?.address || 'Jl. Pendidikan No. 123, Komplek Pelajar, Kota Harapan, Indonesia 12345';
+    const mapsLink = settings?.landing_page?.maps_link || '#';
+
+    // School Name variables
+    const schoolName = settings?.school_name || 'Sekolah Islam Terpadu Cendekia';
+    const appName = settings?.app_name || 'PPDB Online';
+
+    const footerDesc = settings?.landing_page?.footer_desc || `Panitia Penerimaan Peserta Didik Baru ${schoolName} Tahun Ajaran 2025/2026. Melayani dengan sepenuh hati untuk masa depan pendidikan Indonesia.`;
+    const footerCopyright = settings?.landing_page?.footer_copyright || `© 2025 Panitia PPDB ${schoolName}. All rights reserved.`;
+
+
+
+    // Statistik difokuskan pada urgensi & kualitas
+    const statistics = [
+        { icon: Users, count: '1200+', label: 'Siswa' },
+        { icon: GraduationCap, count: '85+', label: 'Guru & Staff' },
+        { icon: BookOpen, count: '15+', label: 'Ekstrakurikuler' },
+        { icon: Trophy, count: '50+', label: 'Penghargaan' },
+    ];
+
+    const steps = [
+        { title: "Isi Biodata", desc: "Isi formulir biodata diri secara online melalui website ini." },
+        { title: "Verifikasi", desc: "Admin memverifikasi berkas pendaftaran dalam 1x24 jam." },
+        { title: "Ujian / Tes", desc: "Ikuti tes potensi akademik (TPA) secara luring/daring." },
+        { title: "Wawancara", desc: "Sesi wawancara calon siswa dan orang tua." },
+        { title: "Pengumuman", desc: "Hasil seleksi diumumkan via WhatsApp & Email." },
+    ];
+
+    const defaultPrograms = [
+        { title: "Science Class (IPA)", desc: "Fokus pada penguatan sains, teknologi, dan persiapan olimpiade.", img: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Social Class (IPS)", desc: "Pengembangan kepemimpinan, entrepreneurship, dan ilmu sosial.", img: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+        { title: "Digital Class", desc: "Kelas khusus coding, desain grafis, dan digital marketing.", img: "https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
+    ];
+
+    const programsList = (settings?.landing_page?.programs && settings.landing_page.programs.length > 0)
+        ? settings.landing_page.programs
+        : defaultPrograms;
+
+    const sliderRef = useRef(null);
+    const animationRef = useRef(null);
+
+    useEffect(() => {
+        const slider = sliderRef.current;
+        if (!slider || programsList.length <= 3) return;
+
+        let direction = 0.5; // slow speed
+
+        const animate = () => {
+            if (!slider) return;
+
+            // Check boundaries
+            if (slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 1) {
+                direction = -0.5;
+            } else if (slider.scrollLeft <= 0) {
+                direction = 0.5;
+            }
+
+            slider.scrollLeft += direction;
+            animationRef.current = requestAnimationFrame(animate);
+        };
+
+        animationRef.current = requestAnimationFrame(animate);
+
+        return () => {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        };
+    }, [programsList.length]);
+
+    const faqs = settings?.landing_page?.faqs || [
+        { q: "Kapan batas akhir pendaftaran Gelombang 1?", a: "Pendaftaran Gelombang 1 ditutup pada tanggal 30 November 2025." },
+        { q: "Apakah ada beasiswa prestasi?", a: "Ya, kami menyediakan beasiswa potongan DSP 50% untuk juara 1-3 tingkat kota/provinsi." },
+        { q: "Bagaimana sistem pembayarannya?", a: "Pembayaran dapat dicicil hingga 3x selama satu semester pertama." },
+    ];
+
+    const faqTitle = settings?.landing_page?.faq_title || 'Pertanyaan Sering Diajukan';
+
+    const scrollToSection = (id) => {
+        const element = document.querySelector(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+            setActiveTab(id.replace('#', ''));
+            setIsMenuOpen(false);
+        }
+    };
+
+    // Fungsi Handle Submit PPDB ke Fonnte
+    const handlePPDBSubmit = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+
+        const formData = new FormData();
+        formData.append('target', ppdbData.phone);
+        formData.append('message', `Halo Calon Siswa ${ppdbData.name},\n\nSelamat! Data pendaftaran awal Anda di ${schoolName} telah kami terima.\n\nDetail:\nNama: ${ppdbData.name}\nAsal Sekolah: ${ppdbData.originSchool}\n\nLangkah selanjutnya: Silakan lengkapi berkas di link berikut (link-dummy.com) atau kunjungi sekolah kami.`);
+        formData.append('countryCode', '62');
+
+        try {
+            const response = await fetch('https://api.fonnte.com/send', {
+                method: 'POST',
+                headers: { 'Authorization': settings?.fonnte_token },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.status) {
+                alert("Pendaftaran Berhasil! Silakan cek WhatsApp Anda untuk instruksi selanjutnya.");
+                setIsPPDBOpen(false);
+                setPpdbData({ name: '', phone: '', originSchool: '' });
+            } else {
+                alert("Pendaftaran terkirim, namun gagal mengirim notifikasi WA (Cek token/koneksi).");
+            }
+        } catch (error) {
+            console.error("Error sending WA:", error);
+            alert("Terima kasih! Data pendaftaran tersimpan. Silakan tunggu info dari panitia.");
+            setIsPPDBOpen(false);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 gap-4">
+                <Loader2 className="animate-spin text-emerald-600" size={48} />
+                <p className="text-slate-500 font-medium animate-pulse">Memuat Data Sekolah...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="font-sans text-gray-800 bg-gray-50 pb-24 md:pb-0 min-h-screen w-full">
+
+            {/* Announcement Bar */}
+            <div className="bg-yellow-500 text-blue-900 py-2 text-sm text-center font-bold px-4">
+                {settings?.landing_page?.announcement_bar || '🚀 Pendaftaran Gelombang 1 DIBUKA! Dapatkan potongan DSP hingga 2 Juta Rupiah.'}
+            </div>
+
+
+
+            {/* Standard Public Header (Shared) */}
+            <PublicHeader
+                settings={settings}
+                user={user}
+                isAdmin={isAdmin}
+                onLogin={onLogin}
+                activeTab={activeTab}
+                onNavigate={(href) => scrollToSection(href)}
+            />
+
+            {/* Premium Mobile Navigation (Floating Island) */}
+            <div className="md:hidden fixed bottom-6 left-4 right-4 z-40 animate-slide-up">
+                <div className="bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 dark:border-slate-700/50 flex justify-between items-center px-6 py-4 relative">
+
+                    <button
+                        onClick={() => scrollToSection('#home')}
+                        className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'home' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Home size={24} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
+                        <span className="text-[10px] font-bold">Home</span>
+                    </button>
+
+                    <button
+                        onClick={() => scrollToSection('#flow')}
+                        className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'flow' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <FileText size={24} strokeWidth={activeTab === 'flow' ? 2.5 : 2} />
+                        <span className="text-[10px] font-bold">Alur</span>
+                    </button>
+
+                    {/* Center Floating Button (PPDB) */}
+                    <div className="absolute left-1/2 -top-8 -translate-x-1/2">
+                        <button
+                            onClick={() => user ? window.location.href = '/login' : onLogin()}
+                            className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center border-4 border-slate-50 dark:border-slate-800 transform transition-transform hover:scale-110 active:scale-95 group"
+                        >
+                            {user ? (
+                                <LayoutDashboard size={28} className="ml-0.5 group-hover:animate-pulse" />
+                            ) : (
+                                <LogIn size={28} className="ml-1 group-hover:animate-pulse" />
+                            )}
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={() => scrollToSection('#programs')}
+                        className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'programs' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <BookOpen size={24} strokeWidth={activeTab === 'programs' ? 2.5 : 2} />
+                        <span className="text-[10px] font-bold">Jurusan</span>
+                    </button>
+
+                    <button
+                        onClick={() => setIsMenuOpen(true)}
+                        className={`flex flex-col items-center gap-1 transition-all duration-300 ${isMenuOpen ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Grid size={24} strokeWidth={isMenuOpen ? 2.5 : 2} />
+                        <span className="text-[10px] font-bold">Menu</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* MODAL FORMULIR PPDB */}
+            {isPPDBOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative transform transition-all scale-100">
+                        <div className="bg-blue-600 p-6 text-white text-center relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-full bg-pattern opacity-10"></div>
+                            <h2 className="text-2xl font-bold mb-1 relative z-10">Formulir Pendaftaran</h2>
+                            <p className="text-blue-100 text-sm relative z-10">Tahun Ajaran 2025/2026</p>
+                            <button
+                                onClick={() => setIsPPDBOpen(false)}
+                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-1 rounded-full text-white transition z-20"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handlePPDBSubmit} className="p-6 space-y-4">
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800 flex items-start gap-2">
+                                <Clock size={16} className="shrink-0 mt-0.5" />
+                                <span>Segera daftar! Kuota Gelombang 1 tersisa <strong>15 kursi</strong> lagi.</span>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nama Lengkap Calon Siswa</label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-gray-50 focus:bg-white"
+                                        placeholder="Sesuai Ijazah SMP"
+                                        value={ppdbData.name}
+                                        onChange={(e) => setPpdbData({ ...ppdbData, name: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nomor WhatsApp Aktif</label>
+                                <div className="relative">
+                                    <Smartphone className="absolute left-3 top-3 text-gray-400" size={18} />
+                                    <input
+                                        type="tel"
+                                        required
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-gray-50 focus:bg-white"
+                                        placeholder="0812xxxx (Untuk notifikasi)"
+                                        value={ppdbData.phone}
+                                        onChange={(e) => setPpdbData({ ...ppdbData, phone: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Asal Sekolah SMP/MTs</label>
+                                <div className="relative">
+                                    <School className="absolute left-3 top-3 text-gray-400" size={18} />
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-gray-50 focus:bg-white"
+                                        placeholder="Nama Sekolah Asal"
+                                        value={ppdbData.originSchool}
+                                        onChange={(e) => setPpdbData({ ...ppdbData, originSchool: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 size={20} className="animate-spin" /> Memproses...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send size={20} /> Kirim Pendaftaran
+                                        </>
+                                    )}
+                                </button>
+                                <p className="text-center text-xs text-gray-400 mt-3">Data Anda aman dan terenkripsi.</p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Full Screen Mobile Menu Overlay */}
+            {isMenuOpen && (
+                <div className="fixed inset-0 z-[60] bg-white md:hidden animate-fade-in">
+                    <div className="flex flex-col h-full">
+                        <div className="flex justify-between items-center p-6 border-b">
+                            <span className="font-bold text-xl text-gray-900">Menu PPDB</span>
+                            <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                {navLinks.map((link) => (
+                                    <button
+                                        key={link.name}
+                                        onClick={() => scrollToSection(link.href)}
+                                        className="flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 border border-gray-100 p-4 rounded-xl transition group"
+                                    >
+                                        <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 mb-2 group-hover:scale-110 transition">
+                                            <link.icon size={20} />
+                                        </div>
+                                        <span className="font-medium text-sm text-gray-700">{link.name}</span>
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={onLogin}
+                                    className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 border border-blue-100 p-4 rounded-xl transition group col-span-2"
+                                >
+                                    <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 mb-2 group-hover:scale-110 transition">
+                                        <LogIn size={20} />
+                                    </div>
+                                    <span className="font-medium text-sm text-gray-700">Login / Daftar</span>
+                                </button>
+                            </div>
+
+                            <div className="mt-8 p-6 bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl text-white relative overflow-hidden shadow-xl">
+                                <div className="relative z-10">
+                                    <h3 className="font-bold text-lg mb-1">Butuh Bantuan?</h3>
+                                    <p className="text-blue-100 text-sm mb-4">Tim admin kami siap membantu Anda 24/7 via WhatsApp.</p>
+                                    <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full flex items-center justify-center gap-2 transition">
+                                        <Phone size={16} /> Chat Admin
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Hero Section */}
+            <header id="home" className="relative h-screen min-h-[600px] flex items-center -mt-20 md:-mt-24">
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"}
+                        alt="School Building"
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/80 to-blue-900/40"></div>
+                </div>
+
+                <div className="container mx-auto px-4 relative z-10 text-white pt-20">
+                    <div className="max-w-3xl animate-fade-in-up md:pl-4">
+                        <div className="inline-flex items-center gap-2 bg-yellow-500/20 border border-yellow-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                            <span className="text-yellow-300 text-sm font-bold tracking-wide uppercase">
+                                {settings?.landing_page?.hero_badge || 'Pendaftaran TA 2025/2026 Dibuka'}
+                            </span>
+                        </div>
+
+                        <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
+                            {settings?.landing_page?.hero_title?.includes('|') ? (
+                                <>
+                                    <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
+                                        {settings.landing_page.hero_title.split('|')[0]}
+                                    </span> <br />
+                                    <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#fbbf24' }}>
+                                        {settings.landing_page.hero_title.split('|')[1]}
+                                    </span>
+                                </>
+                            ) : (
+                                settings?.landing_page?.hero_title || (
+                                    <>
+                                        <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
+                                            Siapkan Masa Depan
+                                        </span> <br />
+                                        <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#fbbf24' }}>
+                                            Gemilang Buah Hati
+                                        </span>
+                                    </>
+                                )
+                            )}
+                        </h1>
+
+                        <p className="text-lg md:text-xl mb-8 text-blue-100 leading-relaxed max-w-2xl">
+                            {settings?.landing_page?.hero_subtitle || `Bergabunglah dengan ${schoolName}. Sekolah berbasis digital dan karakter yang mencetak lulusan siap kuliah di PTN Favorit dan bersaing global.`}
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <button
+                                onClick={onLogin}
+                                className="bg-yellow-500 hover:bg-yellow-400 text-blue-900 px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/30 group text-lg"
+                            >
+                                {settings?.landing_page?.hero_btn_text || 'Daftar Sekarang'} <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
+                            </button>
+                            {settings?.landing_page?.brochure_link && (
+                                <a
+                                    href={settings.landing_page.brochure_link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white hover:text-blue-900 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2"
+                                >
+                                    <FileText size={20} /> Unduh Brosur
+                                </a>
+                            )}
+                        </div>
+
+                        <div className="mt-12 flex items-center gap-4 text-sm font-medium text-blue-200">
+                            <div className="flex -space-x-2">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-blue-900 overflow-hidden">
+                                        <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="Avatar" />
+                                    </div>
+                                ))}
+                            </div>
+                            <p>Bergabung dengan <strong>500+ pendaftar</strong> lainnya hari ini.</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Statistics / Quota Section */}
+            <section className="relative z-20 -mt-16 pb-16">
+                <div className="container mx-auto px-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        {statistics.map((stat, index) => (
+                            <div key={index} className="bg-white p-6 rounded-2xl shadow-xl border-b-4 border-yellow-500 text-center transform hover:-translate-y-1 transition duration-300">
+                                <div className="flex items-center justify-center mb-3 text-blue-600">
+                                    <stat.icon size={32} />
+                                </div>
+                                <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.count}</h3>
+                                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Alur Pendaftaran */}
+            <section id="flow" className="py-16 bg-white">
+                <div className="container mx-auto px-4">
+                    <div className="text-center max-w-2xl mx-auto mb-16">
+                        <span className="text-blue-600 font-bold uppercase tracking-wider text-sm mb-2 block">Mudah & Cepat</span>
+                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Alur Pendaftaran Online</h2>
+                        <p className="text-gray-600">Proses pendaftaran dirancang sesimpel mungkin agar Anda bisa mendaftar dari mana saja dan kapan saja.</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-8 relative">
+                        {/* Connecting Line (Desktop) */}
+                        <div className="hidden md:block absolute top-12 left-0 w-full h-1 bg-gray-100 -z-0"></div>
+
+                        {steps.map((step, index) => (
+                            <div key={index} className="relative z-10 text-center group">
+                                <div className="w-20 h-20 md:w-24 md:h-24 mx-auto bg-white border-4 border-blue-100 rounded-full flex items-center justify-center text-xl md:text-2xl font-bold text-blue-600 mb-6 group-hover:border-blue-600 group-hover:scale-110 transition duration-300 shadow-sm">
+                                    {index + 1}
+                                </div>
+                                <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-3">{step.title}</h3>
+                                <p className="text-gray-500 text-xs md:text-sm leading-relaxed px-2">{step.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="text-center mt-12">
+                        <button onClick={() => navigate('/panduan')} className="inline-flex items-center gap-2 text-blue-600 font-bold hover:text-blue-800 transition border-b-2 border-blue-600 pb-1">
+                            Baca Panduan Lengkap <ArrowRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* Program Unggulan */}
+            <section id="programs" className="py-16 bg-gray-50">
+                <div className="container mx-auto px-4">
+                    <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+                        <div className="max-w-xl">
+                            <span className="text-yellow-600 font-bold uppercase tracking-wider text-sm mb-2 block">Pilihan Jurusan</span>
+                            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Program Unggulan Kami</h2>
+                        </div>
+                        <button className="hidden md:block bg-white text-blue-900 px-6 py-2 rounded-full font-bold border border-gray-200 hover:shadow-md transition">Lihat Kurikulum</button>
+                    </div>
+
+                    <div
+                        ref={sliderRef}
+                        className={programsList.length > 3
+                            ? "flex overflow-x-auto gap-6 pb-8 pt-2 scrollbar-hide snap-x"
+                            : "grid md:grid-cols-3 gap-8"
+                        }
+                    >
+                        {programsList.map((prog, index) => (
+                            <div
+                                key={index}
+                                className={`bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-300 group ${programsList.length > 3 ? 'min-w-[320px] md:min-w-[380px] snap-center' : ''}`}
+                            >
+                                <div className="h-48 overflow-hidden relative">
+                                    <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition z-10"></div>
+                                    <img src={prog.img} alt={prog.title} className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" />
+                                </div>
+                                <div className="p-8">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3">{prog.title}</h3>
+                                    <p className="text-gray-600 mb-6 leading-relaxed text-sm line-clamp-3">{prog.desc}</p>
+                                    <button
+                                        onClick={() => setSelectedProgram(prog)}
+                                        className="inline-flex items-center text-blue-600 font-bold text-sm hover:gap-2 transition-all"
+                                    >
+                                        Detail Program <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Program Detail Modal */}
+            {selectedProgram && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedProgram(null)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden relative transform transition-all scale-100" onClick={(e) => e.stopPropagation()}>
+                        {/* Header with Image */}
+                        <div className="relative h-64 overflow-hidden">
+                            {selectedProgram.img ? (
+                                <img src={selectedProgram.img} alt={selectedProgram.title} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-700"></div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+
+                            {/* Category Badge */}
+                            {selectedProgram.category && (
+                                <div className="absolute top-6 left-6">
+                                    <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${selectedProgram.category === 'TK' ? 'bg-pink-500 text-white' :
+                                        selectedProgram.category === 'SD' ? 'bg-blue-500 text-white' :
+                                            selectedProgram.category === 'SMP' ? 'bg-purple-500 text-white' :
+                                                selectedProgram.category === 'SMK' ? 'bg-orange-500 text-white' :
+                                                    'bg-gray-500 text-white'
+                                        }`}>
+                                        {selectedProgram.category}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setSelectedProgram(null)}
+                                className="absolute top-6 right-6 bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition backdrop-blur-sm z-20"
+                            >
+                                <X size={24} />
+                            </button>
+
+                            {/* Title */}
+                            <div className="absolute bottom-6 left-6 right-6">
+                                <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">{selectedProgram.title}</h2>
+                                <p className="text-blue-100 text-sm">{selectedProgram.desc}</p>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-8 overflow-y-auto max-h-[calc(90vh-16rem)]">
+                            {selectedProgram.details ? (
+                                <div className="prose prose-blue max-w-none">
+                                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                                        {selectedProgram.details}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-gray-400">
+                                    <BookOpen size={48} className="mx-auto mb-3 opacity-20" />
+                                    <p>Detail program belum tersedia</p>
+                                </div>
+                            )}
+
+                            {/* CTA Button */}
+                            <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row gap-3">
+                                <button
+                                    onClick={onLogin}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition"
+                                >
+                                    Daftar Sekarang
+                                </button>
+                                <button
+                                    onClick={() => setSelectedProgram(null)}
+                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl transition"
+                                >
+                                    Tutup
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Biaya Pendidikan (New Section) */}
+            <section id="fees" className="py-16 bg-white">
+                <div className="container mx-auto px-4">
+                    <div className="text-center max-w-2xl mx-auto mb-8">
+                        <span className="text-blue-600 font-bold uppercase tracking-wider text-sm mb-2 block">Transparan & Terjangkau</span>
+                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Estimasi Biaya Pendidikan</h2>
+                        <p className="text-gray-600">Investasi terbaik untuk masa depan buah hati Anda dengan fasilitas lengkap dan kurikulum unggulan.</p>
+                    </div>
+
+                    {/* Academic Year Selector (If multiple active) */}
+                    {academicYears.filter(y => y.is_active).length > 1 && (
+                        <div className="flex justify-center gap-3 mb-6">
+                            <div className="bg-gray-100 p-1 rounded-xl inline-flex">
+                                {academicYears.filter(y => y.is_active).map(year => (
+                                    <button
+                                        key={year.id}
+                                        onClick={() => setActiveAcademicYear(year)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeAcademicYear?.id === year.id
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                    >
+                                        Tahun {year.year}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Level Tabs (Now Branch Tabs) */}
+                    <div className="flex justify-center gap-2 mb-8 flex-wrap">
+                        {branches
+                            .filter(branch => !activeAcademicYear?.unit_ids || activeAcademicYear.unit_ids.includes(branch.id))
+                            .map(branch => (
+                                <button
+                                    key={branch.id}
+                                    onClick={() => setSelectedBranchId(branch.id)}
+                                    className={`px-6 py-2.5 rounded-full font-bold text-sm transition-all ${selectedBranchId === branch.id
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    {branch.name}
+                                </button>
+                            ))}
+                    </div>
+
+                    {/* Selected Branch Info */}
+                    {(() => {
+                        const selectedBranch = branches.find(b => b.id === selectedBranchId);
+                        if (!selectedBranch) {
+                            return (
+                                <div className="text-center py-12 text-gray-400">
+                                    <School size={48} className="mx-auto mb-3 opacity-50" />
+                                    <p>Silakan pilih unit sekolah untuk melihat biaya.</p>
+                                </div>
+                            );
+                        }
+
+                        // Determine display values based on active academic year
+                        const activeYearId = activeAcademicYear?.id;
+                        const config = selectedBranch.academic_configs?.[activeYearId];
+
+                        // Priority: 1. Academic Year Config, 2. Root Level (Legacy)
+                        const displayFeeBreakdown = config?.fee_breakdown || selectedBranch.fee_breakdown || selectedBranch.cost_breakdown || [];
+                        const displayReg = config?.cost_reg ?? selectedBranch.cost_reg ?? 0;
+                        const displayRereg = config?.cost_rereg ?? selectedBranch.cost_rereg ?? 0;
+
+                        return (
+                            <div className="max-w-4xl mx-auto">
+                                {/* Branch Name Badge */}
+                                <div className="text-center mb-6">
+                                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold">
+                                        <School size={16} />
+                                        {selectedBranch.name}
+                                        {activeAcademicYear && <span className="text-blue-500 font-normal">({activeAcademicYear.year})</span>}
+                                    </span>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    {/* Card Biaya Masuk */}
+                                    <div className="border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 bg-yellow-500 text-blue-900 text-xs font-bold px-3 py-1 rounded-bl-lg">Sekali Bayar</div>
+                                        <h3 className="text-2xl font-bold text-gray-900 mb-2">Dana Sumbangan Pendidikan (DSP)</h3>
+                                        <p className="text-gray-500 text-sm mb-6">Dibayarkan saat daftar ulang (bisa dicicil 3x).</p>
+
+                                        <div className="space-y-4">
+                                            {(displayFeeBreakdown && displayFeeBreakdown.length > 0) ? (
+                                                <>
+                                                    {displayFeeBreakdown.map((item, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                                            <span className="text-gray-600 text-sm">{item.label || item.name}</span>
+                                                            <span className="font-bold text-gray-900">Rp {(item.amount || 0).toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                    <div className="flex justify-between items-center pt-2 text-lg">
+                                                        <span className="font-bold text-blue-600">Total</span>
+                                                        <span className="font-bold text-blue-600">
+                                                            Rp {displayFeeBreakdown.reduce((sum, item) => sum + (item.amount || 0), 0).toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-400 text-sm">
+                                                    <p>Rincian biaya belum diatur</p>
+                                                    <p className="font-bold text-gray-700 mt-2">Biaya Daftar Ulang: Rp {(displayRereg || 0).toLocaleString()}</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-6 bg-blue-50 p-4 rounded-lg text-sm text-blue-800 flex items-start gap-2">
+                                            <CheckCircle size={18} className="shrink-0 mt-0.5" />
+                                            <span><strong>Biaya Pendaftaran:</strong> Rp {(displayReg || 0).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Card SPP */}
+                                    <div className="border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition relative bg-gray-50">
+                                        <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">Bulanan</div>
+                                        <h3 className="text-2xl font-bold text-gray-900 mb-2">SPP Bulanan</h3>
+                                        <p className="text-gray-500 text-sm mb-6">Biaya operasional pendidikan rutin.</p>
+
+                                        <div className="flex items-baseline mb-6">
+                                            <span className="text-4xl font-bold text-gray-900">Rp {(selectedBranch.cost_spp || 850000).toLocaleString()}</span>
+                                            <span className="text-gray-500 ml-2">/ bulan</span>
+                                        </div>
+
+                                        <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Termasuk:</h4>
+                                        <ul className="space-y-3">
+                                            {(selectedBranch.spp_includes && selectedBranch.spp_includes.length > 0) ? (
+                                                selectedBranch.spp_includes.map((item, i) => (
+                                                    <li key={i} className="flex items-center gap-3 text-sm text-gray-700">
+                                                        <CheckCircle size={16} className="text-green-500 shrink-0" />
+                                                        {item}
+                                                    </li>
+                                                ))
+                                            ) : (
+                                                [
+                                                    "Akses Full Fasilitas (Lab, Perpus, Gym)",
+                                                    "Ekstrakurikuler Wajib",
+                                                    "Layanan Kesehatan (UKS)",
+                                                    "Konseling BP/BK",
+                                                    "Akses E-Learning Premium"
+                                                ].map((item, i) => (
+                                                    <li key={i} className="flex items-center gap-3 text-sm text-gray-700">
+                                                        <CheckCircle size={16} className="text-green-500 shrink-0" />
+                                                        {item}
+                                                    </li>
+                                                ))
+                                            )}
+                                        </ul>
+
+                                        <div className="mt-8 pt-6 border-t border-gray-200">
+                                            <p className="text-xs text-gray-500 mb-2">* Tidak ada biaya ujian semester/tahunan.</p>
+                                            <p className="text-xs text-gray-500">* Kenaikan SPP maksimal 10% per tahun jika diperlukan.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </section>
+
+            {/* CTA Section */}
+            <section className="py-20 relative overflow-hidden" style={{ backgroundColor: settings?.landing_page?.cta_bg_color || '#1e3a8a' }}>
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                <div className="container mx-auto px-4 text-center relative z-10">
+                    <h2
+                        className="text-3xl md:text-5xl font-bold mb-6 !text-[var(--cta-title-color)]"
+                        style={{ '--cta-title-color': settings?.landing_page?.cta_title_color || '#ffffff' }}
+                    >
+                        {settings?.landing_page?.cta_title || 'Jangan Lewatkan Kesempatan Emas Ini!'}
+                    </h2>
+                    <p
+                        className="text-lg mb-10 max-w-2xl mx-auto !text-[var(--cta-desc-color)]"
+                        style={{ '--cta-desc-color': settings?.landing_page?.cta_desc_color || '#bfdbfe' }}
+                    >
+                        {settings?.landing_page?.cta_desc || 'Kuota terbatas untuk gelombang pertama. Daftarkan putra-putri Anda sekarang dan dapatkan prioritas seleksi serta potongan biaya masuk.'}
+                    </p>
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                        <button
+                            onClick={onLogin}
+                            className="bg-yellow-500 hover:bg-yellow-400 text-blue-900 text-lg px-10 py-4 rounded-full font-bold shadow-xl transition transform hover:-translate-y-1"
+                        >
+                            {settings?.landing_page?.cta_btn1_text || 'Ambil Kuota Sekarang'}
+                        </button>
+                        {settings?.landing_page?.cta_wa_number ? (
+                            <a
+                                href={`https://wa.me/${settings.landing_page.cta_wa_number}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-transparent border-2 border-white/30 hover:bg-white text-white hover:text-blue-900 px-10 py-4 rounded-full font-bold transition inline-block"
+                            >
+                                {settings?.landing_page?.cta_btn2_text || 'Konsultasi via WA'}
+                            </a>
+                        ) : (
+                            <button
+                                className="bg-transparent border-2 border-white/30 hover:bg-white text-white hover:text-blue-900 px-10 py-4 rounded-full font-bold transition"
+                                onClick={() => alert('Nomor WhatsApp belum diatur oleh admin')}
+                            >
+                                {settings?.landing_page?.cta_btn2_text || 'Konsultasi via WA'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            {/* FAQ Section */}
+            <section id="faq" className="py-16 bg-white">
+                <div className="container mx-auto px-4 max-w-3xl">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-bold text-gray-900">{faqTitle}</h2>
+                    </div>
+                    <div className="space-y-4">
+                        {faqs.map((item, index) => (
+                            <div key={index} className="border border-gray-200 rounded-xl p-6 hover:border-blue-300 transition bg-gray-50 hover:bg-white">
+                                <h3 className="font-bold text-lg text-gray-900 mb-2 flex items-start gap-3">
+                                    <span className="text-blue-600 shrink-0">Q:</span> {item.q}
+                                </h3>
+                                <p className="text-gray-600 pl-8 text-sm leading-relaxed">{item.a}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* Footer */}
+            <footer id="contact" className="bg-gray-900 text-gray-400 py-12 border-t border-gray-800">
+                <div className="container mx-auto px-4">
+                    <div className="grid md:grid-cols-4 gap-8">
+                        <div className="col-span-2">
+                            <div className="flex items-center gap-3 mb-6 text-white">
+                                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">
+                                    {appName[0]}
+                                </div>
+                                <span className="font-bold text-xl uppercase">{appName} {schoolName}</span>
+                            </div>
+                            <p className="text-sm mb-6 max-w-md">
+                                {footerDesc}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 className="text-white font-bold mb-4">Kontak Panitia</h4>
+                            <ul className="space-y-3 text-sm">
+                                <li className="flex items-center gap-3"><Phone size={16} /> {contactWA} (WA Only)</li>
+                                <li className="flex items-center gap-3"><Phone size={16} /> {contactOffice} (Kantor)</li>
+                                <li className="flex items-center gap-3"><Mail size={16} /> {contactEmail}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="text-white font-bold mb-4">Lokasi Sekolah</h4>
+                            <p className="text-sm mb-4">{schoolAddress}</p>
+                            <a href={mapsLink} target="_blank" rel="noreferrer" className="text-blue-500 text-sm font-bold hover:underline">Lihat di Google Maps</a>
+                        </div>
+                    </div>
+                    <div className="border-t border-gray-800 mt-12 pt-8 text-center text-sm">
+                        {footerCopyright}
+                    </div>
+                </div>
+            </footer>
+
+            {/* Popup Banner Modal */}
+            {showPopup && settings?.landing_page?.popup_image && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+                    onClick={() => setShowPopup(false)}
+                >
+                    <div
+                        className="relative max-w-lg w-full animate-scale-in"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setShowPopup(false)}
+                            className="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full shadow-xl flex items-center justify-center text-gray-600 hover:text-red-500 hover:bg-red-50 transition-all z-10 border border-gray-200"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        {/* Popup Image */}
+                        {settings.landing_page.popup_link ? (
+                            <a
+                                href={settings.landing_page.popup_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                            >
+                                <img
+                                    src={settings.landing_page.popup_image}
+                                    alt="Promo Banner"
+                                    className="w-full rounded-2xl shadow-2xl cursor-pointer hover:scale-[1.02] transition-transform"
+                                />
+                            </a>
+                        ) : (
+                            <img
+                                src={settings.landing_page.popup_image}
+                                alt="Promo Banner"
+                                className="w-full rounded-2xl shadow-2xl"
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
+
+            <FloatingAssistant aiSettings={settings?.ai_assistant} apiKey={apiKey} realtimeData={realtimeData} />
+        </div>
+    );
+};
+
+export default SchoolWebsite;

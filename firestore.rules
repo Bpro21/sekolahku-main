@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- HELPER FUNCTIONS ---
+
+    // Check if the user is authenticated and matches the requested User ID
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Check if the user is an Admin
+    // NOTE: This currently mimics the frontend logic (email contains 'admin').
+    // SECURITY WARNING: In a production environment, you should use Custom Claims 
+    // or store a list of admin UIDs in a secured collection and check against that for robust security.
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email.matches('.*admin.*')
+      );
+    }
+
+    // --- RULES ---
+
+    // 1. Root Match for the 'artifacts' structure used by the app
+    match /artifacts/{appId} {
+      
+      // A. USER SPECIFIC DATA (Registrations, Students, Invoices)
+      // Path: /artifacts/{appId}/users/{userId}/...
+      match /users/{userId}/{document=**} {
+        // Allow the user to read/write their own data.
+        // Allow admins to read/write any user data (for verification/management).
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+
+      // B. PUBLIC DATA (Configurations, Units, Vouchers)
+      // Path: /artifacts/{appId}/public/...
+      match /public/{document=**} {
+        // Anyone (even unauthenticated) can read public settings (like App Logo, Units info).
+        allow read: if true;
+        
+        // Only Admins can modify public settings, create vouchers, or change unit quotas.
+        allow write: if isAdmin();
+      }
+
+      // C. INDENT SUBMISSIONS
+      match /indent_submissions/{userId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+      
+      // Specifically for 'vouchers' if they need more specific logic (e.g. usage count decrement by user)
+      // But currently handling it via Admin or Server-Side logic is best.
+      // If User needs to decrement usage, we might need a specific rule for that field.
+    }
+
+    // 2. Fallback: Deny access to any other collections not explicitly defined above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
