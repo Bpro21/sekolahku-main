@@ -306,7 +306,6 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                 wave_id: formData.wave_id,
                 wave_name: selectedWave ? `${selectedWave.year} - ${selectedWave.name}` : 'Unknown',
                 academic_year: selectedWave?.year || 'Unknown',
-                category: finalCategory,
                 status: 'submitted',
                 is_indent: isIndentMode,
                 is_scholarship: isScholarship,

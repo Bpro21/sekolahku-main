@@ -203,7 +203,6 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
                 wave_id: formData.wave_id,
                 wave_name: selectedWave ? `${selectedWave.year} - ${selectedWave.name}` : 'Unknown',
                 academic_year: selectedWave?.year || 'Unknown',
-                category: paths.find(p => p.id === formData.path_id)?.name || 'Internal',
                 status: 'submitted',
                 is_indent: true,
                 is_internal: true,
