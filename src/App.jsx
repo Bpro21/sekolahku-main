@@ -29,7 +29,7 @@ import PaymentHistory from './components/user/PaymentHistory';
 import UserProfile from './components/user/UserProfile';
 
 // Public Components
-import SchoolWebsite from './components/public/SchoolWebsite';
+import SchoolWebsite from './components/public/SchoolWebsite.jsx';
 import GuidePage from './components/public/GuidePage';
 import NotFound from './components/public/NotFound';
 
