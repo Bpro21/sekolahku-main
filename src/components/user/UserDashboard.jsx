@@ -680,8 +680,7 @@ export default function UserDashboard({ user, onNavigate, showToast }) {
                 target_unit_id: recUnitId,
                 target_unit_name: targetUnit?.name || 'Unknown',
                 recommendation_doc: base64,
-                status: 'pending',
-                updated_at: new Date().toISOString()
+                status: 'pending'
             };
 
             // Check if submission exists
