@@ -375,6 +375,24 @@ export default function PaymentHistory({ user, showToast }) {
 
             await supabase.from('registrations').update(regUpdates).eq('id', activeInvoice.registration_id);
 
+            // Update CRM Lead status to 'bayar_daftar' (syncs with kanban)
+            try {
+                const userPhone = user.user_metadata?.phone || user.phone;
+                if (userPhone) {
+                    const sanitizedPhone = userPhone.replace(/[^0-9]/g, '');
+                    await supabase
+                        .from('leads')
+                        .update({
+                            status: 'bayar_daftar',
+                            notes: `Bukti bayar dikirim untuk: ${activeInvoice.student_name}`,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('phone', sanitizedPhone);
+                }
+            } catch (crmError) {
+                console.warn("CRM lead update skipped:", crmError);
+            }
+
             showToast('Bukti pembayaran berhasil dikirim. Menunggu verifikasi admin.');
             setActiveInvoice(null); setUploadProof(null); setSelectedBank(null); setAppliedVoucher(null); setVoucherCode('');
         } catch (err) { console.error(err); showToast('Gagal kirim bukti.', 'error'); }

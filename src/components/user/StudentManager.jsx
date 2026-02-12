@@ -25,43 +25,63 @@ export default function StudentManager({ user, showToast, initialTab }) {
     useEffect(() => {
         if (!user) return;
 
-        // Fetch students data
-        const fetchStudents = async () => {
-            const { data } = await supabase
-                .from('students')
-                .select('*')
-                .eq('user_id', user.id);
-            if (data) {
-                setStudents(data);
-                if (!selectedStudent && data.length > 0) {
-                    setSelectedStudent(data[0]);
-                }
-            }
-        };
-
-        // Fetch registrations data
+        // Fetch registrations data (contains student biodata)
         const fetchRegistrations = async () => {
             const { data } = await supabase
                 .from('registrations')
                 .select('*')
                 .eq('user_id', user.id);
-            if (data) setRegistrations(data);
+            if (data) {
+                setRegistrations(data);
+
+                // Extract students from registrations biodata
+                const extractedStudents = data.map(reg => ({
+                    id: reg.id,
+                    registration_id: reg.id,
+                    name: reg.student_name || reg.biodata?.name || 'Nama belum diisi',
+                    nickname: reg.biodata?.nickname,
+                    nik: reg.biodata?.nik,
+                    kk: reg.biodata?.kk,
+                    gender: reg.biodata?.gender,
+                    pob: reg.biodata?.pob,
+                    dob: reg.biodata?.dob,
+                    religion: reg.biodata?.religion || reg.student_religion,
+                    nationality: reg.biodata?.nationality,
+                    child_order: reg.biodata?.child_order,
+                    siblings_count: reg.biodata?.siblings_count,
+                    siblings_step: reg.biodata?.siblings_step,
+                    siblings_adopted: reg.biodata?.siblings_adopted,
+                    orphan_status: reg.biodata?.orphan_status,
+                    daily_language: reg.biodata?.daily_language,
+                    height: reg.biodata?.height,
+                    weight: reg.biodata?.weight,
+                    blood_type: reg.biodata?.blood_type,
+                    diseases: reg.biodata?.diseases,
+                    diseases_hospital: reg.biodata?.diseases_hospital,
+                    physical_disability: reg.biodata?.physical_disability,
+                    allergies: reg.biodata?.allergies,
+                    special_needs: reg.biodata?.special_needs,
+                    parents: reg.biodata?.parents,
+                    address: reg.biodata?.address,
+                    edit_request: reg.edit_request,
+                    user_id: reg.user_id
+                }));
+
+                setStudents(extractedStudents);
+                if (!selectedStudent && extractedStudents.length > 0) {
+                    setSelectedStudent(extractedStudents[0]);
+                }
+            }
         };
 
-        fetchStudents();
         fetchRegistrations();
 
-        // Real-time subscriptions
-        const studentsChannel = supabase.channel('user_students_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'students', filter: `user_id=eq.${user.id}` }, fetchStudents)
-            .subscribe();
-
+        // Real-time subscription
         const regsChannel = supabase.channel('user_registrations_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_id=eq.${user.id}` }, fetchRegistrations)
             .subscribe();
 
         return () => {
-            supabase.removeChannel(studentsChannel);
             supabase.removeChannel(regsChannel);
         };
     }, [user]);
@@ -77,9 +97,9 @@ export default function StudentManager({ user, showToast, initialTab }) {
     const handleRequestEdit = async () => {
         if (!editReason) return showToast("Alasan wajib diisi", "error");
 
-        // Update student with edit request
+        // Update registration with edit request
         await supabase
-            .from('students')
+            .from('registrations')
             .update({
                 edit_request: {
                     status: 'pending',
@@ -91,10 +111,10 @@ export default function StudentManager({ user, showToast, initialTab }) {
 
         // Create edit request record
         await supabase.from('edit_requests').insert({
-            student_id: selectedStudent.id,
+            registration_id: selectedStudent.id,
             student_name: selectedStudent.name,
             user_id: user.id,
-            parent_name: user.user_metadata?.full_name || user.email,
+            parent_name: user.user_metadata?.displayName || user.user_metadata?.full_name || user.email,
             reason: editReason,
             status: 'pending',
             requested_at: new Date().toISOString()
@@ -108,22 +128,49 @@ export default function StudentManager({ user, showToast, initialTab }) {
 
     const saveEdit = async () => {
         try {
-            const { id, ...dataToUpdate } = editForm;
+            const { id, registration_id, ...studentData } = editForm;
+            const regId = registration_id || id;
 
-            // Update student record
-            const { error: studentError } = await supabase
-                .from('students')
-                .update(dataToUpdate)
-                .eq('id', id);
+            // Build updated biodata object
+            const updatedBiodata = {
+                name: studentData.name,
+                nickname: studentData.nickname,
+                nik: studentData.nik,
+                kk: studentData.kk,
+                gender: studentData.gender,
+                pob: studentData.pob,
+                dob: studentData.dob,
+                religion: studentData.religion,
+                nationality: studentData.nationality,
+                child_order: studentData.child_order,
+                siblings_count: studentData.siblings_count,
+                siblings_step: studentData.siblings_step,
+                siblings_adopted: studentData.siblings_adopted,
+                orphan_status: studentData.orphan_status,
+                daily_language: studentData.daily_language,
+                height: studentData.height,
+                weight: studentData.weight,
+                blood_type: studentData.blood_type,
+                diseases: studentData.diseases,
+                diseases_hospital: studentData.diseases_hospital,
+                physical_disability: studentData.physical_disability,
+                allergies: studentData.allergies,
+                special_needs: studentData.special_needs,
+                parents: studentData.parents,
+                address: studentData.address
+            };
 
-            if (studentError) throw studentError;
-
-            // Update related registrations with new name
-            const newName = dataToUpdate.name;
-            await supabase
+            // Update registration record with new biodata
+            const { error } = await supabase
                 .from('registrations')
-                .update({ student_name: newName })
-                .eq('student_id', id);
+                .update({
+                    student_name: studentData.name,
+                    biodata: updatedBiodata,
+                    edit_request: null // Clear edit request after successful edit
+                })
+                .eq('id', regId);
+
+            if (error) throw error;
 
             showToast("Data berhasil diperbarui!");
             setIsEditing(false);
@@ -135,7 +182,7 @@ export default function StudentManager({ user, showToast, initialTab }) {
 
     const handleDocUpload = async (key, file) => {
         if (!file) return;
-        const currentReg = registrations.find(r => r.student_id === selectedStudent?.id);
+        const currentReg = registrations.find(r => r.id === selectedStudent?.id);
         if (!currentReg) return;
 
         try {
@@ -188,7 +235,7 @@ export default function StudentManager({ user, showToast, initialTab }) {
     );
 
     const getUploadedDocs = (studentId) => {
-        const reg = registrations.find(r => r.student_id === studentId);
+        const reg = registrations.find(r => r.id === studentId);
         return reg?.uploaded_docs || {};
     };
 
@@ -342,7 +389,7 @@ export default function StudentManager({ user, showToast, initialTab }) {
                             </button>
                             {/* NEW TAB FOR DAFTAR ULANG */}
                             {(() => {
-                                const st = registrations.find(r => r.student_id === selectedStudent?.id)?.status;
+                                const st = registrations.find(r => r.id === selectedStudent?.id)?.status;
                                 // Show for Lulus, Accepted, or any subsequent status
                                 if (['lulus', 'accepted', 'paid', 'verified', 'verifying_payment'].includes(st)) {
                                     return (
@@ -484,7 +531,7 @@ export default function StudentManager({ user, showToast, initialTab }) {
                                     </div>
 
                                     {(() => {
-                                        const curReg = registrations.find(r => r.student_id === selectedStudent?.id);
+                                        const curReg = registrations.find(r => r.id === selectedStudent?.id);
                                         const docs = curReg?.uploaded_docs || {};
                                         const verified = curReg?.agreements_verified;
 

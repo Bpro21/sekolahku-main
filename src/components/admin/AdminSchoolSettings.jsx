@@ -98,6 +98,8 @@ export default function AdminSchoolSettings({ showToast }) {
                     quota: currentQuota,
                     cost_reg: u.cost_reg,
                     cost_rereg: u.cost_rereg,
+                    cost_spp: u.cost_spp,
+                    spp_includes: u.spp_includes || [],
                     majors: u.majors || [],
                     fee_breakdown: u.fee_breakdown || []
                 };
@@ -138,21 +140,12 @@ export default function AdminSchoolSettings({ showToast }) {
 
     const handleSaveAcademicYear = async () => {
         try {
-            // Remove unit_ids from payload since column doesn't exist in DB
-            const { unit_ids, ...dataWithoutUnitIds } = editingAcademicYear;
-
             if (editingAcademicYear.id) {
-                const { id, ...data } = dataWithoutUnitIds;
+                const { id, ...data } = editingAcademicYear;
                 const { error } = await supabase.from('academic_years').update(data).eq('id', id);
                 if (error) throw error;
             } else {
-                // Determine unit names for display efficiency (if unit_ids was provided in UI)
-                const selectedBranches = branches.filter(u => (unit_ids || []).includes(u.id));
-                const dataToSave = {
-                    ...dataWithoutUnitIds,
-                    unit_names: selectedBranches.length > 0 ? selectedBranches.map(u => u.name).join(', ') : null
-                };
-                const { error } = await supabase.from('academic_years').insert(dataToSave);
+                const { error } = await supabase.from('academic_years').insert(editingAcademicYear);
                 if (error) throw error;
             }
             showToast('Tahun Akademik tersimpan'); setEditingAcademicYear(null);

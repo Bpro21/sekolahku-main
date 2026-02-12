@@ -190,7 +190,7 @@ export default function AdminDashboard() {
     const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!inputMsg.trim()) return;
-        if (!config.gemini_api_key) return alert("API Key Gemini belum diatur di menu Pengaturan Ujian.");
+        if (!settings?.gemini_api_key) return alert("API Key Gemini belum diatur di menu Pengaturan Aplikasi → Setup API.");
 
         const userText = inputMsg;
         setMessages(prev => [...prev, { role: 'user', text: userText }]);
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
                 Pertanyaan User: "${userText}"
             `;
 
-            const result = await callGeminiAI(config.gemini_api_key, contextPrompt);
+            const result = await callGeminiAI(settings.gemini_api_key, contextPrompt);
             setMessages(prev => [...prev, { role: 'assistant', text: result }]);
         } catch (error) {
             setMessages(prev => [...prev, { role: 'assistant', text: "Maaf, terjadi kesalahan koneksi ke AI." }]);

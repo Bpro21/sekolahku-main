@@ -81,11 +81,11 @@ const AdminSystemLogs = ({ showToast }) => {
             let query = supabase
                 .from('visitor_logs')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('id', { ascending: false })
                 .limit(PAGE_SIZE);
 
             if (isNext && visitorLastVisible) {
-                query = query.lt('created_at', visitorLastVisible.created_at);
+                query = query.lt('id', visitorLastVisible.id);
             }
 
             const { data, error } = await query;
@@ -332,7 +332,7 @@ const AdminSystemLogs = ({ showToast }) => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                     {visitorLogs.map((log) => (
-                                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <tr key={log.id || Math.random()} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="p-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm">
                                                     <Calendar size={14} />
@@ -343,25 +343,25 @@ const AdminSystemLogs = ({ showToast }) => {
                                                 <div className="flex items-center gap-2">
                                                     <Monitor size={14} className="text-slate-400" />
                                                     <code className="text-sm font-mono text-slate-700 dark:text-slate-300">
-                                                        {log.ip_address || 'Unknown'}
+                                                        {log.ip || 'Unknown'}
                                                     </code>
                                                 </div>
                                             </td>
                                             <td className="p-4">
                                                 <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded">
-                                                    {log.path}
+                                                    {log.page}
                                                 </span>
                                             </td>
                                             <td className="p-4 hidden md:table-cell">
-                                                <div className="text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate" title={log.userAgent}>
-                                                    {log.userAgent}
+                                                <div className="text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate" title={log.user_agent}>
+                                                    {log.user_agent}
                                                 </div>
                                             </td>
                                             <td className="p-4 text-center">
-                                                {log.ip_address && log.ip_address !== 'Unknown' && (
+                                                {log.ip && log.ip !== 'Unknown' && (
                                                     <button
-                                                        onClick={() => handleBlockIP(log.ip_address, 'Anonymous Visitor')}
-                                                        disabled={processingIp === log.ip_address}
+                                                        onClick={() => handleBlockIP(log.ip, 'Anonymous Visitor')}
+                                                        disabled={processingIp === log.ip}
                                                         className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition-colors group relative"
                                                         title="Blokir IP Ini"
                                                     >

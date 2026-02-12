@@ -313,6 +313,7 @@ const RegistrationDetail = ({ reg, onNavigate, handleOpenRevision, handleOpenAcc
                                             (() => {
                                                 const docs = reg.uploaded_docs || {};
                                                 const isComplete = docs.agreement_rokok && docs.agreement_lgbt && docs.agreement_kriminal && docs.mcu_letter;
+                                                const normalize = s => (s && typeof s === 'string') ? s.trim().toLowerCase() : '';
                                                 const pNameInner = (reg.path_name || '').toLowerCase();
                                                 const isExemptInner = reg.is_scholarship || pNameInner.includes('prestasi') || pNameInner.includes('yatim');
 
@@ -532,33 +533,33 @@ export default function UserDashboard({ user, onNavigate, showToast }) {
         if (!user) return;
 
         const fetchData = async () => {
-            // 1. Settings
-            const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 'main').single();
-            if (settingsData) setSettings(settingsData);
+            // Fetch all data in parallel for maximum speed
+            const [
+                settingsResult,
+                indentSetResult,
+                ayResult,
+                unitsResult,
+                userRegsResult,
+                indentSubResult,
+                allRegsResult
+            ] = await Promise.all([
+                supabase.from('app_settings').select('*').eq('id', 'main').single(),
+                supabase.from('indent_settings').select('*').maybeSingle(),
+                supabase.from('academic_years').select('*'),
+                supabase.from('units').select('*'),
+                supabase.from('registrations').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                supabase.from('indent_submissions').select('*').eq('user_id', user.id).maybeSingle(),
+                supabase.from('registrations').select('unit_id, major, status, academic_year') // Light query for quota
+            ]);
 
-            // 2. Indent Settings
-            const { data: indentSet } = await supabase.from('indent_settings').select('*').eq('id', 'main').single();
-            if (indentSet) setIndentSettings(indentSet);
-
-            // 3. Academic Years
-            const { data: ayData } = await supabase.from('academic_years').select('*');
-            if (ayData) setAcademicYears(ayData);
-
-            // 4. Units
-            const { data: unitsData } = await supabase.from('units').select('*');
-            if (unitsData) setBranches(unitsData);
-
-            // 5. User Registrations
-            const { data: userRegs } = await supabase.from('registrations').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-            if (userRegs) setRegistrations(userRegs);
-
-            // 6. Indent Submission
-            const { data: indentSub } = await supabase.from('indent_submissions').select('*').eq('user_id', user.id).single();
-            setIndentSubmission(indentSub || null);
-
-            // 7. All Registrations (for Quota) - Using a light query
-            const { data: allRegs } = await supabase.from('registrations').select('id, unit_id, major, major_name, status, academic_year, academic_year_id');
-            if (allRegs) setAllRegistrations(allRegs);
+            // Update state (all at once to minimize re-renders)
+            if (settingsResult.data) setSettings(settingsResult.data);
+            if (indentSetResult.data) setIndentSettings(indentSetResult.data);
+            if (ayResult.data) setAcademicYears(ayResult.data);
+            if (unitsResult.data) setBranches(unitsResult.data);
+            if (userRegsResult.data) setRegistrations(userRegsResult.data);
+            setIndentSubmission(indentSubResult.data || null);
+            if (allRegsResult.data) setAllRegistrations(allRegsResult.data);
         };
 
         fetchData();
@@ -566,18 +567,11 @@ export default function UserDashboard({ user, onNavigate, showToast }) {
         // Realtime Subscription for Updates
         const channel = supabase.channel('dashboard_updates')
             // Registrations
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_id=eq.${user.id}` }, (payload) => {
-                // Simplest strategy: Refetch list on any change
-                fetchData();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations', filter: `user_id=eq.${user.id}` }, fetchData)
             // Indent Submissions
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'indent_submissions', filter: `user_id=eq.${user.id}` }, () => {
-                fetchData();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'indent_submissions', filter: `user_id=eq.${user.id}` }, fetchData)
             // Units (Quota updates)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
-                fetchData();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, fetchData)
             .subscribe();
 
         return () => {
@@ -678,10 +672,9 @@ export default function UserDashboard({ user, onNavigate, showToast }) {
             const base64 = await fileToBase64(recommendationFile);
             const targetUnit = branches.find(b => b.id === recUnitId);
 
-            // Upsert indent submission
-            const { error } = await supabase.from('indent_submissions').upsert({
+            const submissionData = {
                 user_id: user.id,
-                parent_name: user.user_metadata?.name || user.email, // Supabase user metadata
+                parent_name: user.user_metadata?.name || user.email,
                 user_email: user.email,
                 student_name_candidate: recStudentName,
                 target_unit_id: recUnitId,
@@ -689,7 +682,30 @@ export default function UserDashboard({ user, onNavigate, showToast }) {
                 recommendation_doc: base64,
                 status: 'pending',
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
+            };
+
+            // Check if submission exists
+            const { data: existing } = await supabase
+                .from('indent_submissions')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                // Update existing
+                const result = await supabase
+                    .from('indent_submissions')
+                    .update(submissionData)
+                    .eq('id', existing.id);
+                error = result.error;
+            } else {
+                // Insert new
+                const result = await supabase
+                    .from('indent_submissions')
+                    .insert(submissionData);
+                error = result.error;
+            }
 
             if (error) throw error;
 
@@ -827,7 +843,7 @@ export default function UserDashboard({ user, onNavigate, showToast }) {
                         <span className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-300">PSB Portal Sekolah</span>
                         <div className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[8px] font-black text-emerald-300 leading-none">V2.0</div>
                     </div>
-                    <h2 className="text-3xl md:text-6xl font-black mb-4 tracking-tighter leading-tight text-white">Assalamu'alaikum, {user.displayName?.split(' ')[0] || 'User'}!</h2>
+                    <h2 className="text-3xl md:text-6xl font-black mb-4 tracking-tighter leading-tight text-white">Assalamu'alaikum, {(user.user_metadata?.displayName || user.user_metadata?.full_name)?.split(' ')[0] || 'User'}!</h2>
                     <p className="text-emerald-100/70 text-sm md:text-lg max-w-lg mb-8 font-medium">Pantau status pendaftaran dan lengkapi administrasi calon siswa baru secara praktis.</p>
 
                     <div className="w-full max-w-2xl grid grid-cols-5 gap-2 md:gap-4">

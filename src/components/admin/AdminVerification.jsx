@@ -186,6 +186,39 @@ export default function AdminVerification({ showToast }) {
             }
 
             showToast(newStatus === 'lulus' ? 'Pendaftar Dinyatakan LULUS' : (newStatus === 'verified' ? 'Berkas Terverifikasi' : 'Berkas Dikembalikan untuk Revisi'));
+
+            // Update CRM Lead status (syncs with kanban)
+            try {
+                // Get user phone from their profile
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('phone')
+                    .eq('id', selected.user_id)
+                    .single();
+
+                if (profileData?.phone) {
+                    const sanitizedPhone = profileData.phone.replace(/[^0-9]/g, '');
+                    let crmStatus = 'berkas'; // Default: Document verified
+
+                    if (newStatus === 'lulus') {
+                        crmStatus = 'daftar_ulang'; // Internal indent goes to re-registration
+                    } else if (newStatus === 'document_revision') {
+                        crmStatus = 'biodata'; // Needs revision, back to biodata stage
+                    }
+
+                    await supabase
+                        .from('leads')
+                        .update({
+                            status: crmStatus,
+                            notes: `Verification result: ${newStatus} for ${selected.student_name}`,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('phone', sanitizedPhone);
+                }
+            } catch (crmError) {
+                console.warn("CRM lead update skipped:", crmError);
+            }
+
             setSelected(null);
         } catch (e) { showToast(e.message, 'error'); }
     };
@@ -204,6 +237,29 @@ export default function AdminVerification({ showToast }) {
                 `Mohon maaf, pendaftaran siswa ${selected.student_name} tidak dapat dilanjutkan. Alasan: ${globalNote}`,
                 'error'
             );
+
+            // Update CRM Lead status to 'lost' (syncs with kanban)
+            try {
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('phone')
+                    .eq('id', selected.user_id)
+                    .single();
+
+                if (profileData?.phone) {
+                    const sanitizedPhone = profileData.phone.replace(/[^0-9]/g, '');
+                    await supabase
+                        .from('leads')
+                        .update({
+                            status: 'lost',
+                            notes: `Rejected: ${globalNote}`,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('phone', sanitizedPhone);
+                }
+            } catch (crmError) {
+                console.warn("CRM lead update skipped:", crmError);
+            }
 
             showToast('Pendaftaran Ditolak Permanen');
             setSelected(null);

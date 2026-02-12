@@ -45,6 +45,11 @@ export default function AdminWebsiteSettings({ showToast }) {
             cta_btn1_text: 'Ambil Kuota Sekarang',
             cta_btn2_text: 'Konsultasi via WA',
             cta_wa_number: '',
+            programs: [
+                { title: 'Tahfidz Al-Quran', desc: 'Program unggulan menghafal Al-Quran dengan target 30 juz selama 3 tahun.', icon: 'Book' },
+                { title: 'Billingual Class', desc: 'Pembelajaran menggunakan dua bahasa (Inggris & Arab) untuk mata pelajaran tertentu.', icon: 'Globe' },
+                { title: 'Robotik & Coding', desc: 'Ekstrakurikuler wajib untuk melatih logika dan kemampuan teknologi santri.', icon: 'Cpu' }
+            ],
             faq_title: 'Pertanyaan Sering Diajukan',
             faqs: [
                 { q: 'Kapan batas akhir pendaftaran Gelombang 1?', a: 'Pendaftaran Gelombang 1 ditutup pada tanggal 30 November 2025.' },
@@ -163,6 +168,28 @@ export default function AdminWebsiteSettings({ showToast }) {
                 .upsert({ id: 'main', ...settings });
 
             if (error) throw error;
+
+            // Update Session Storage Cache
+            const currentCache = JSON.parse(sessionStorage.getItem('app_settings_cache') || '{}');
+            const newAppSettings = {
+                app_name: settings.app_name,
+                app_version: settings.app_version,
+                app_logo: settings.app_logo,
+                app_template: settings.app_template,
+                // Ensure other settings are preserved or updated if needed elsewhere
+            };
+
+            sessionStorage.setItem('app_settings_cache', JSON.stringify({
+                ...currentCache,
+                settings: {
+                    ...currentCache.settings,
+                    ...newAppSettings
+                }
+            }));
+
+            // Dispatch Event for Real-time Update
+            window.dispatchEvent(new CustomEvent('app-settings-updated', { detail: newAppSettings }));
+
             showToast('Semua perubahan berhasil disimpan!');
         } catch (error) {
             console.error("Save Error:", error);
@@ -182,6 +209,7 @@ export default function AdminWebsiteSettings({ showToast }) {
             <div className="flex gap-2 border-b border-slate-200 mb-6 overflow-x-auto pb-1 scrollbar-hide">
                 {[
                     { id: 'branding', label: 'Branding & Tema', icon: Globe },
+                    { id: 'marquee', label: 'Running Text', icon: Bell },
                     { id: 'seo', label: 'SEO & Analytics', icon: Search },
                     { id: 'landing', label: 'Halaman Depan (Hero)', icon: LayoutDashboard },
                     { id: 'programs', label: 'Program Unggulan', icon: BookOpen },
@@ -313,6 +341,168 @@ export default function AdminWebsiteSettings({ showToast }) {
                             </Card>
                         </div>
                     </div>
+                )}
+
+                {/* Marquee / Running Text Section */}
+                {activeSection === 'marquee' && (
+                    <Card className="p-6">
+                        <div className="mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <Bell size={24} className="text-emerald-600" />
+                                Pengaturan Running Text (Marquee)
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                Atur teks berjalan yang muncul di bagian paling atas halaman depan website
+                            </p>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Preview */}
+                            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs font-bold text-slate-500 dark:text-slate-400 px-4 py-2 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                                    PREVIEW
+                                </div>
+                                <div
+                                    className="py-2.5 overflow-hidden whitespace-nowrap"
+                                    style={{ backgroundColor: settings.landing_page?.marquee_bg_color || '#2563eb' }}
+                                >
+                                    <div
+                                        className="inline-flex"
+                                        style={{
+                                            animation: `marquee-preview ${settings.landing_page?.marquee_speed || 30}s linear infinite`,
+                                            color: settings.landing_page?.marquee_text_color || '#ffffff'
+                                        }}
+                                    >
+                                        {[...Array(4)].map((_, i) => (
+                                            <span key={i} className="mx-16 text-xs md:text-sm font-bold tracking-wide">
+                                                {settings.landing_page?.announcement_bar || '🚀 Pendaftaran Siswa Baru Telah DIBUKA! Dapatkan potongan DSP bagi pendaftar awal.'}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <style>{`
+                                    @keyframes marquee-preview {
+                                        0% { transform: translateX(0%); }
+                                        100% { transform: translateX(-50%); }
+                                    }
+                                `}</style>
+                            </div>
+
+                            {/* Text Content */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                    Teks Pengumuman
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                    value={settings.landing_page?.announcement_bar || ''}
+                                    onChange={e => handleLandingPageChange('announcement_bar', e.target.value)}
+                                    placeholder="Contoh: 🚀 Pendaftaran Gelombang 1 Dibuka sampai 30 November! Dapatkan potongan biaya 10%"
+                                />
+                                <p className="text-xs text-slate-500 mt-1.5">
+                                    Gunakan emoji untuk menarik perhatian. Kosongkan untuk menggunakan teks default dari data gelombang aktif.
+                                </p>
+                            </div>
+
+                            {/* Colors */}
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                        Warna Background
+                                    </label>
+                                    <div className="flex gap-3 items-center">
+                                        <input
+                                            type="color"
+                                            value={settings.landing_page?.marquee_bg_color || '#2563eb'}
+                                            onChange={e => handleLandingPageChange('marquee_bg_color', e.target.value)}
+                                            className="w-20 h-12 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={settings.landing_page?.marquee_bg_color || '#2563eb'}
+                                            onChange={e => handleLandingPageChange('marquee_bg_color', e.target.value)}
+                                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono text-sm"
+                                            placeholder="#2563eb"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                        Warna Teks
+                                    </label>
+                                    <div className="flex gap-3 items-center">
+                                        <input
+                                            type="color"
+                                            value={settings.landing_page?.marquee_text_color || '#ffffff'}
+                                            onChange={e => handleLandingPageChange('marquee_text_color', e.target.value)}
+                                            className="w-20 h-12 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={settings.landing_page?.marquee_text_color || '#ffffff'}
+                                            onChange={e => handleLandingPageChange('marquee_text_color', e.target.value)}
+                                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono text-sm"
+                                            placeholder="#ffffff"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Speed */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                    Kecepatan Animasi (detik)
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="range"
+                                        min="10"
+                                        max="60"
+                                        step="5"
+                                        value={settings.landing_page?.marquee_speed || 30}
+                                        onChange={e => handleLandingPageChange('marquee_speed', parseInt(e.target.value))}
+                                        className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                                    />
+                                    <span className="text-lg font-bold text-emerald-600 w-16 text-center">
+                                        {settings.landing_page?.marquee_speed || 30}s
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1.5">
+                                    Nilai lebih kecil = lebih cepat. Rekomendasi: 20-40 detik.
+                                </p>
+                            </div>
+
+                            {/* Quick Presets */}
+                            <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
+                                    Preset Warna Cepat
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        { name: 'Biru', bg: '#2563eb', text: '#ffffff' },
+                                        { name: 'Hijau', bg: '#059669', text: '#ffffff' },
+                                        { name: 'Merah', bg: '#dc2626', text: '#ffffff' },
+                                        { name: 'Kuning', bg: '#f59e0b', text: '#1e293b' },
+                                        { name: 'Ungu', bg: '#7c3aed', text: '#ffffff' },
+                                        { name: 'Gelap', bg: '#1e293b', text: '#f8fafc' },
+                                    ].map(preset => (
+                                        <button
+                                            key={preset.name}
+                                            onClick={() => {
+                                                handleLandingPageChange('marquee_bg_color', preset.bg);
+                                                handleLandingPageChange('marquee_text_color', preset.text);
+                                            }}
+                                            className="px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-105 border-2 border-transparent hover:border-emerald-500"
+                                            style={{ backgroundColor: preset.bg, color: preset.text }}
+                                        >
+                                            {preset.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
                 )}
 
                 {/* SEO Section */}
@@ -520,6 +710,96 @@ export default function AdminWebsiteSettings({ showToast }) {
                             </Card>
                         </div>
                     </div>
+                )}
+
+                {/* Programs Section Settings */}
+                {activeSection === 'programs' && (
+                    <Card className="p-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    <BookOpen size={24} className="text-emerald-600" />
+                                    Program Unggulan
+                                </h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                    Tampilkan program-program terbaik sekolah untuk menarik minat calon siswa
+                                </p>
+                            </div>
+                            <Button
+                                onClick={() => {
+                                    const newProgram = { title: '', desc: '', icon: 'Book' };
+                                    const currentPrograms = settings.landing_page?.programs || [];
+                                    handleLandingPageChange('programs', [...currentPrograms, newProgram]);
+                                    showToast('Program baru ditambahkan');
+                                }}
+                                className="shrink-0"
+                            >
+                                <Plus size={18} className="mr-2" /> Tambah Program
+                            </Button>
+                        </div>
+
+                        {(settings.landing_page?.programs || []).length === 0 ? (
+                            <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600">
+                                <BookOpen size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
+                                <h4 className="text-lg font-bold text-slate-600 dark:text-slate-400 mb-2">Belum Ada Program</h4>
+                                <Button
+                                    onClick={() => {
+                                        const newProgram = { title: '', desc: '', icon: 'Book' };
+                                        handleLandingPageChange('programs', [newProgram]);
+                                        showToast('Program baru ditambahkan');
+                                    }}
+                                    variant="outline"
+                                >
+                                    <Plus size={18} className="mr-2" /> Buat Program Pertama
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {(settings.landing_page?.programs || []).map((program, idx) => (
+                                    <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-5 border border-slate-200 dark:border-slate-700 relative group hover:shadow-md transition-all">
+                                        <button
+                                            onClick={() => {
+                                                const newPrograms = settings.landing_page.programs.filter((_, i) => i !== idx);
+                                                handleLandingPageChange('programs', newPrograms);
+                                                showToast('Program dihapus', 'success');
+                                            }}
+                                            className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
+                                            title="Hapus Program"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+
+                                        <div className="space-y-4">
+                                            <Input
+                                                label={`Judul Program ${idx + 1}`}
+                                                value={program.title}
+                                                onChange={(e) => {
+                                                    const newPrograms = [...(settings.landing_page.programs || [])];
+                                                    newPrograms[idx] = { ...newPrograms[idx], title: e.target.value };
+                                                    handleLandingPageChange('programs', newPrograms);
+                                                }}
+                                                placeholder="Contoh: Tahfidz Al-Quran"
+                                            />
+                                            <div>
+                                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Deskripsi Singkat</label>
+                                                <textarea
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none transition-all"
+                                                    rows={3}
+                                                    placeholder="Deskripsi singkat program..."
+                                                    value={program.desc}
+                                                    onChange={(e) => {
+                                                        const newPrograms = [...(settings.landing_page.programs || [])];
+                                                        newPrograms[idx] = { ...newPrograms[idx], desc: e.target.value };
+                                                        handleLandingPageChange('programs', newPrograms);
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Card>
                 )}
 
                 {/* 3. CTA Section Settings */}

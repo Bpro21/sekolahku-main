@@ -76,7 +76,7 @@ export default function AdminTestSettings({ showToast }) {
     };
 
     const handleGenerateQuestions = async () => {
-        if (!globalSettings.google_gemini_api_key) return alert("API Key Gemini belum diatur di Pengaturan Aplikasi!");
+        if (!globalSettings.gemini_api_key) return alert("API Key Gemini belum diatur di Pengaturan Aplikasi!");
         setIsAiLoading(true);
         try {
             const categoryLabel = genCategory === 'psychotest'
@@ -102,7 +102,7 @@ export default function AdminTestSettings({ showToast }) {
                 }
             `;
 
-            let res = await callGeminiAI(globalSettings.google_gemini_api_key, prompt);
+            let res = await callGeminiAI(globalSettings.gemini_api_key, prompt);
 
             // Clean markdown if AI insists on using it
             if (res.includes('```json')) {

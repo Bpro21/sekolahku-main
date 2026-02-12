@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../config/supabase';
 import {
     User, FileText, MapPin, Building, GraduationCap, CheckCircle,
-    Activity, School, CheckSquare, Users, Upload, Info, Clock, Send
+    Activity, School, CheckSquare, Users, Upload, Info, Clock, Send,
+    AlertTriangle, Lock, ShieldCheck, FileSearch, ArrowRight, XCircle, FileWarning
 } from 'lucide-react';
 import { Card, Button, Input, Select, Badge } from '../ui/Elements';
 import { Modal } from '../ui/Overlays';
@@ -65,7 +66,7 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                 const { data } = await supabase.from('indent_submissions')
                     .select('*')
                     .eq('user_id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 setIndentSubmission(data);
                 if (!data || data.status === 'rejected' || data.status === 'pending') {
@@ -119,7 +120,7 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                 const TAKEN_STATUS = ['submitted', 'verified', 'verifying_payment', 'paid', 'paid_registration', 'accepted', 'lulus', 're_registration', 'student', 'psychotest_done', 'interview_accepted'];
 
                 const { data: regs } = await supabase.from('registrations')
-                    .select('unit_id, major, status, accepted_major')
+                    .select('unit_id, major, status')
                     .eq('academic_year', targetYearString);
 
                 const stats = {};
@@ -157,8 +158,19 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
             if (unitsData) setBranches(unitsData);
 
             // Paths
-            const { data: pathsData } = await supabase.from('paths').select('*').eq('active', true);
-            if (pathsData) setPaths(pathsData);
+            const { data: pathsData, error: pathsError } = await supabase.from('paths').select('*').eq('active', true);
+            if (pathsData && pathsData.length > 0) {
+                setPaths(pathsData);
+            } else {
+                console.warn("Paths table missing or empty, using fallbacks.");
+                setPaths([
+                    { id: 'reg', name: 'Reguler' },
+                    { id: 'ach-acad', name: 'Prestasi Akademik' },
+                    { id: 'ach-non', name: 'Prestasi Non-Akademik' },
+                    { id: 'tahfizh', name: 'Tahfizh Al-Qur\'an' },
+                    { id: 'scholar', name: 'Beasiswa Yatim/Dhuafa' }
+                ]);
+            }
 
             // Academic Years
             const { data: ayData } = await supabase.from('academic_years').select('*');
@@ -309,7 +321,7 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                     mother: formData.mother,
                     guardian: formData.guardian
                 },
-                parent_name: user.user_metadata?.full_name || user.email, // fallback
+                parent_name: user.user_metadata?.displayName || user.user_metadata?.full_name || user.email, // fallback
             }).select().single();
 
             if (regError) throw regError;
@@ -338,6 +350,24 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                     status: 'pending',
                     created_at: new Date().toISOString()
                 });
+            }
+
+            // Update CRM Lead status to 'biodata' (syncs with kanban)
+            try {
+                const userPhone = user.user_metadata?.phone || user.phone;
+                if (userPhone) {
+                    const sanitizedPhone = userPhone.replace(/[^0-9]/g, '');
+                    await supabase
+                        .from('leads')
+                        .update({
+                            status: 'biodata',
+                            notes: `Biodata submitted for: ${formData.student_new.name}`,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('phone', sanitizedPhone);
+                }
+            } catch (crmError) {
+                console.warn("CRM lead update skipped:", crmError);
             }
 
             onComplete(); showToast('Pendaftaran berhasil disimpan!');
@@ -380,33 +410,60 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
     );
 
     const steps_list = [
-        { title: 'Personal', icon: User },
-        { title: 'Pendidikan', icon: GraduationCap },
-        { title: 'Alamat', icon: MapPin },
-        { title: 'Keluarga', icon: Users },
-        { title: 'Pilihan', icon: School },
-        { title: 'Dokumen', icon: FileText },
-        { title: 'Review', icon: CheckSquare }
+        { title: 'Personal', icon: User, desc: 'Identitas' },
+        { title: 'Sekolah', icon: GraduationCap, desc: 'Pendidikan' },
+        { title: 'Alamat', icon: MapPin, desc: 'Domisili' },
+        { title: 'Keluarga', icon: Users, desc: 'Orang Tua' },
+        { title: 'Unit', icon: School, desc: 'Pilihan' },
+        { title: 'Dokumen', icon: FileText, desc: 'Upload' },
+        { title: 'Review', icon: CheckSquare, desc: 'Final' }
     ];
 
     const handleSubmitRecommendation = async () => {
         if (!recommendationFile || !recStudentName.trim() || !recUnitId) return showToast('Mohon lengkapi Nama, Cabang, dan File Rekomendasi.', 'error');
         setUploadingRec(true);
         try {
-            const base64 = await fileToBase64(recommendationFile);
             const targetUnit = branches.find(b => b.id === recUnitId);
 
-            await supabase.from('indent_submissions').insert({
+            // Upload file to Supabase Storage instead of base64
+            const fileExt = recommendationFile.name.split('.').pop();
+            const fileName = `${user.id}/${Date.now()}_rekomendasi.${fileExt}`;
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('documents')
+                .upload(fileName, recommendationFile, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) {
+                console.error('Storage upload error:', uploadError);
+                throw new Error(uploadError.message || 'Gagal upload file ke storage');
+            }
+
+            // Get the public URL (or signed URL for private bucket)
+            const { data: urlData } = supabase.storage
+                .from('documents')
+                .getPublicUrl(fileName);
+
+            const fileUrl = urlData?.publicUrl || fileName; // Use path as fallback
+
+            const { data, error } = await supabase.from('indent_submissions').insert({
                 user_id: user.id,
-                parent_name: user.user_metadata?.full_name || 'User',
+                parent_name: user.user_metadata?.displayName || user.user_metadata?.full_name || 'User',
                 user_email: user.email,
                 student_name_candidate: recStudentName,
                 target_unit_id: recUnitId,
                 target_unit_name: targetUnit?.name || 'Unknown',
-                recommendation_doc: base64,
+                recommendation_doc: fileName, // Store file path instead of base64
                 status: 'pending',
                 created_at: new Date().toISOString()
-            });
+            }).select();
+
+            if (error) {
+                console.error('Supabase insert error:', error);
+                throw new Error(error.message || 'Database error');
+            }
 
             showToast('Surat rekomendasi terkirim. Mohon tunggu verifikasi.');
             setUploadModalOpen(false);
@@ -414,8 +471,8 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
             setRecStudentName('');
             setRecUnitId('');
         } catch (e) {
-            console.error(e);
-            showToast('Gagal upload dokumen.', 'error');
+            console.error('Full error:', e);
+            showToast('Gagal upload: ' + (e.message || 'Unknown error'), 'error');
         } finally {
             setUploadingRec(false);
         }
@@ -426,65 +483,151 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
     }
 
     if (isInternal && (!indentSubmission || indentSubmission.status !== 'approved')) {
+        const status = indentSubmission?.status || 'none';
+
         return (
-            <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-                <Card className="p-12 border-2 border-dashed border-slate-200 bg-white dark:bg-slate-900 rounded-[2.5rem]">
-                    <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <FileText size={48} className="text-slate-300" />
-                    </div>
-                    <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight mb-2">Verifikasi Diperlukan</h3>
-                    <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-lg mx-auto">
-                        {indentSubmission
-                            ? (indentSubmission.status === 'pending' ? 'Surat rekomendasi Anda sedang diverifikasi oleh Admin. Mohon tunggu hingga disetujui untuk melanjutkan pendaftaran.' : 'Surat rekomendasi Anda ditolak. Silakan upload ulang.')
-                            : 'Anda harus mengupload Surat Rekomendasi dari Kepala Sekolah/Yayasan untuk melanjutkan pendaftaran jalur Inden Internal.'}
-                    </p>
+            <div className="max-w-4xl mx-auto px-1 md:px-0 py-8 md:py-12">
+                <Card className="p-0 overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl shadow-emerald-500/10 bg-white dark:bg-slate-900 rounded-[2.5rem] relative group">
+                    <div className="p-8 md:p-12">
+                        {/* Decorative Background Elements */}
+                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors duration-700"></div>
+                        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-500/10 transition-colors duration-700"></div>
 
-                    {(!indentSubmission || indentSubmission.status === 'rejected') && (
-                        <Button onClick={() => setUploadModalOpen(true)} className="px-8 py-3 rounded-xl bg-emerald-600 font-black uppercase tracking-widest text-xs">
-                            Upload Surat Rekomendasi
-                        </Button>
-                    )}
-
-                    <Modal isOpen={uploadModalOpen} onClose={() => setUploadModalOpen(false)} title="Upload Surat Rekomendasi">
-                        <div className="p-6">
-                            <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-3">
-                                <div className="p-2 bg-blue-100 text-blue-600 rounded-xl shrink-0"><CheckCircle size={20} /></div>
-                                <div className="space-y-1">
-                                    <h5 className="font-bold text-slate-800 text-xs uppercase tracking-tight">Instruksi Upload</h5>
-                                    <p className="text-[11px] text-slate-500 leading-relaxed">Pastikan surat rekomendasi asli. Format: PDF/JPG (Max 5MB).</p>
-                                    {indentSubmission?.status === 'rejected' && (
-                                        <div className="mt-2 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[10px] font-bold">
-                                            <span className="block uppercase tracking-widest mb-1">Ditolak Karena:</span>
-                                            {indentSubmission.rejection_reason || 'Dokumen tidak valid.'}
-                                        </div>
+                        <div className="relative z-10 text-center">
+                            {/* Icon Visual */}
+                            <div className="relative w-32 h-32 mx-auto mb-10">
+                                <div className="absolute inset-0 bg-emerald-500/10 rounded-full animate-ping pointer-events-none"></div>
+                                <div className="relative w-full h-full bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                    {status === 'pending' ? (
+                                        <Clock size={48} className="text-white animate-pulse" />
+                                    ) : status === 'rejected' ? (
+                                        <FileWarning size={48} className="text-white" />
+                                    ) : (
+                                        <Lock size={48} className="text-white" />
                                     )}
                                 </div>
+                                <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-white dark:bg-slate-800 rounded-2xl shadow-xl flex items-center justify-center border-4 border-slate-50 dark:border-slate-900">
+                                    <ShieldCheck size={20} className="text-emerald-500" />
+                                </div>
                             </div>
-                            <div className="space-y-4 mb-6">
-                                <Input label="Nama Lengkap Calon Siswa" value={recStudentName} onChange={(e) => setRecStudentName(e.target.value)} placeholder="Contoh: Ahmad Abdullah" />
-                                <Select label="Pilih Cabang Tujuan" value={recUnitId} onChange={(e) => setRecUnitId(e.target.value)} options={branches.map(b => ({ value: b.id, label: b.name }))} placeholder="-- Pilih Cabang --" />
+
+                            {/* Text Content */}
+                            <div className="space-y-4 mb-10">
+                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                                    Akses Terbatas: Internal
+                                </div>
+                                <h3 className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter leading-none">
+                                    VERIFIKASI <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">DIPERLUKAN</span>
+                                </h3>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base leading-relaxed max-w-md mx-auto">
+                                    {status === 'pending'
+                                        ? 'Dokumen Anda sedang dalam antrean verifikasi Admin. Kami akan memberikan notifikasi segera setelah pendaftaran Anda dibuka.'
+                                        : status === 'rejected'
+                                            ? 'Mohon maaf, dokumen rekomendasi Anda ditolak. Silakan periksa alasan penolakan dan upload ulang dokumen yang sesuai.'
+                                            : 'Akses pendaftaran Inden Internal hanya tersedia bagi siswa aktif Yayasan/Sekolah kami. Silakan upload Surat Rekomendasi Anda.'}
+                                </p>
                             </div>
-                            <div className="relative group cursor-pointer mb-8">
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                {(status === 'none' || status === 'rejected') && (
+                                    <Button
+                                        onClick={() => setUploadModalOpen(true)}
+                                        className="px-10 py-4 rounded-2xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-slate-900/10 hover:-translate-y-1 transition-all flex items-center justify-center gap-3"
+                                    >
+                                        <Upload size={16} />
+                                        Upload Rekomendasi
+                                    </Button>
+                                )}
+                                {status === 'pending' && (
+                                    <div className="px-8 py-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-100 dark:border-amber-900/30 text-xs uppercase tracking-widest flex items-center gap-3 mx-auto">
+                                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                        Menunggu Verifikasi Admin
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+
+                <Modal isOpen={uploadModalOpen} onClose={() => setUploadModalOpen(false)} title="Upload Surat Rekomendasi" size="md">
+                    <div className="p-8">
+                        <div className="space-y-6">
+                            <div className="p-5 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-3xl flex items-start gap-4">
+                                <div className="w-10 h-10 bg-blue-500 text-white rounded-2xl shrink-0 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                    <Info size={20} />
+                                </div>
+                                <div className="space-y-1">
+                                    <h5 className="font-black text-slate-800 dark:text-white text-xs uppercase tracking-wider">Ketentuan Dokumen</h5>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">Format File: <b>PDF, JPG, atau PNG</b>. <br />Ukuran Maksimum: <b>5 MB</b>.</p>
+                                </div>
+                            </div>
+
+                            {status === 'rejected' && (
+                                <div className="p-5 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 rounded-3xl space-y-2">
+                                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-black text-[10px] uppercase tracking-widest">
+                                        <XCircle size={14} /> Alasan Penolakan
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 italic font-medium">"{indentSubmission.rejection_reason || 'Dokumen tidak dapat terbaca atau tidak sesuai format.'}"</p>
+                                </div>
+                            )}
+
+                            <div className="space-y-4">
+                                <Input
+                                    label="Nama Calon Siswa"
+                                    value={recStudentName}
+                                    onChange={(e) => setRecStudentName(e.target.value)}
+                                    placeholder="Nama Lengkap"
+                                    className="rounded-2xl"
+                                />
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Unit Sekolah Tujuan</label>
+                                    <select
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all font-medium"
+                                        value={recUnitId}
+                                        onChange={(e) => setRecUnitId(e.target.value)}
+                                    >
+                                        <option value="">-- Pilih Unit --</option>
+                                        {branches.map(b => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="relative group">
                                 <input type="file" id="rec-upload-wiz" className="hidden" accept="image/*,.pdf" onChange={(e) => setRecommendationFile(e.target.files[0])} />
-                                <label htmlFor="rec-upload-wiz" className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-2xl w-full cursor-pointer ${recommendationFile ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-400'}`}>
+                                <label htmlFor="rec-upload-wiz" className={`flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-[2rem] w-full cursor-pointer transition-all duration-300 ${recommendationFile ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                                     {recommendationFile ? (
                                         <div className="text-center">
-                                            <FileText size={32} className="mx-auto text-emerald-500 mb-2" />
-                                            <p className="font-bold text-sm text-slate-800">{recommendationFile.name}</p>
+                                            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                                                <FileText size={24} />
+                                            </div>
+                                            <p className="font-bold text-xs text-slate-800 dark:text-white truncate max-w-[200px]">{recommendationFile.name}</p>
+                                            <span className="text-[9px] text-emerald-500 font-black uppercase mt-1 block">File Terpilih</span>
                                         </div>
                                     ) : (
-                                        <div className="text-center">
-                                            <span className="text-sm font-bold text-slate-400">Pilih File Dokumen</span>
+                                        <div className="text-center space-y-2">
+                                            <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300">
+                                                <Upload size={24} />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-400 block tracking-tight">Klik untuk telusuri dokumen</span>
                                         </div>
                                     )}
                                 </label>
                             </div>
-                            <Button className="w-full bg-emerald-600 rounded-xl py-4 font-black uppercase tracking-widest text-xs" onClick={handleSubmitRecommendation} disabled={uploadingRec || !recommendationFile}>
-                                {uploadingRec ? 'Mengirim...' : 'Kirim Dokumen'}
+
+                            <Button
+                                className="w-full bg-slate-900 hover:bg-black dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-2xl py-5 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                onClick={handleSubmitRecommendation}
+                                disabled={uploadingRec || !recommendationFile || !recStudentName || !recUnitId}
+                            >
+                                {uploadingRec ? 'Sedang Mengirim...' : 'Kirim Pengajuan'}
+                                {!uploadingRec && <ArrowRight size={16} />}
                             </Button>
                         </div>
-                    </Modal>
-                </Card>
+                    </div>
+                </Modal>
             </div>
         );
     }
@@ -493,54 +636,69 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
     return (
         <div className="max-w-4xl mx-auto px-1 md:px-0">
             <Card className="p-0 overflow-hidden border border-slate-200 shadow-2xl shadow-emerald-900/5 rounded-[2.5rem] bg-white dark:!bg-slate-900 relative">
-                <div className="absolute top-0 left-0 w-full h-2 bg-slate-100">
+                <div className="absolute top-0 left-0 w-full h-2.5 bg-slate-100 dark:bg-slate-800">
                     <div
-                        className="h-full bg-emerald-500 transition-all duration-700 ease-out"
+                        className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-500 transition-all duration-1000 ease-in-out relative overflow-hidden"
                         style={{ width: `${(step / steps_list.length) * 100}%` }}
-                    />
+                    >
+                        <div className="absolute inset-0 bg-white/20 animate-shimmer"></div>
+                    </div>
                 </div>
 
-                <div className="p-6 md:p-12">
-                    <div className="mb-10 text-center md:text-left">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-4">
-                            Step {step} of {steps_list.length}
+                <div className="p-8 md:p-12">
+                    <div className="mb-12 text-center md:text-left">
+                        <div className="inline-flex items-center gap-3 px-5 py-2 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-full text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-6 backdrop-blur-sm border border-emerald-100 dark:border-emerald-900/30">
+                            Pendaftaran Sekolah • Step {step}/{steps_list.length}
                         </div>
-                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tighter uppercase leading-none">
-                            Formulir {isIndentMode ? `Inden ${isInternal ? 'Internal' : 'Eksternal'}` : 'Pendaftaran'}
+                        <h2 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none mb-4">
+                            Formulir <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
+                                {isIndentMode ? `Inden ${isInternal ? 'Internal' : 'Eksternal'}` : 'Pendaftaran'}
+                            </span>
                         </h2>
-                        {/* ... Info header ... */}
-                        <div className="mt-2 mb-3 animate-slide-down">
-                            <p className="text-lg md:text-xl font-bold text-slate-600 dark:text-slate-300">IDN Boarding School</p>
-                            <p className="text-md font-bold text-emerald-600 dark:text-emerald-400">
-                                Tahun Ajaran {academicYears.length > 0
-                                    ? (isIndentMode
-                                        ? (indentWaves.length > 0 ? indentWaves[0].year : academicYears.find(ay => ay.indent_enabled && !ay.is_default)?.year || 'Mendatang')
-                                        : academicYears.find(ay => ay.is_default)?.year || '-')
-                                    : '...'}
-                            </p>
-                        </div>
-                        <p className="text-slate-400 text-sm mt-2 font-medium">Lengkapi seluruh data dengan benar untuk mempermudah proses seleksi.</p>
+                        <div className="w-20 h-1.5 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full mb-6 mx-auto md:mx-0"></div>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-lg leading-relaxed mx-auto md:mx-0">
+                            {isInternal ? 'Lengkapi pendaftaran prioritas Anda sebagai bagian dari keluarga besar yayasan.' : 'Masa depan cerah dimulai di sini. Lengkapi formulir pendaftaran untuk memulai perjalanan Anda.'}
+                        </p>
                     </div>
-
-                    <div className="flex justify-between mb-12 relative overflow-x-auto no-scrollbar py-4 gap-4 px-2">
+                    {/* ... Info header ... */}
+                    <div className="mt-2 mb-3 animate-slide-down">
+                        <p className="text-lg md:text-xl font-bold text-slate-600 dark:text-slate-300">IDN Boarding School</p>
+                        <p className="text-md font-bold text-emerald-600 dark:text-emerald-400">
+                            Tahun Ajaran {academicYears.length > 0
+                                ? (isIndentMode
+                                    ? (indentWaves.length > 0 ? indentWaves[0].year : academicYears.find(ay => ay.indent_enabled && !ay.is_default)?.year || 'Mendatang')
+                                    : academicYears.find(ay => ay.is_default)?.year || '-')
+                                : '...'}
+                        </p>
+                    </div>
+                    <p className="text-slate-400 text-sm mt-2 font-medium">Lengkapi seluruh data dengan benar untuk mempermudah proses seleksi.</p>
+                    {/* Step Icons (Premium Design) */}
+                    <div className="flex justify-between mb-16 relative overflow-x-auto no-scrollbar py-6 gap-6 px-2">
                         {steps_list.map((s, idx) => {
                             const Icon = s.icon;
                             const isActive = step === idx + 1;
                             const isCompleted = step > idx + 1;
                             return (
-                                <div key={idx} className="flex flex-col items-center gap-2 min-w-fit first:pl-0 last:pr-0">
+                                <div key={idx} className="flex flex-col items-center gap-3 min-w-fit first:pl-0 last:pr-0 group">
                                     <div
                                         onClick={() => isCompleted && setStep(idx + 1)}
-                                        className={`w-12 h-12 rounded-2xl flex items-center justify-center border-4 transition-all duration-500 cursor-pointer ${isActive
-                                            ? 'bg-emerald-600 border-emerald-50 text-white shadow-xl shadow-emerald-200 scale-110'
-                                            : (isCompleted ? 'bg-emerald-50 border-emerald-50 text-emerald-600' : 'bg-slate-50 border-slate-50 text-slate-300')
+                                        className={`w-14 h-14 rounded-2xl flex items-center justify-center border-4 transition-all duration-700 cursor-pointer ${isActive
+                                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-white dark:border-slate-800 text-white shadow-2xl shadow-emerald-500/20 scale-125 z-10'
+                                            : (isCompleted
+                                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-600'
+                                                : 'bg-slate-50 dark:bg-slate-800 border-slate-50 dark:border-slate-800 text-slate-300 dark:text-slate-600')
                                             }`}
                                     >
-                                        {isCompleted ? <CheckCircle size={20} /> : <Icon size={20} />}
+                                        {isCompleted ? <CheckCircle size={22} /> : <Icon size={22} />}
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                        {s.title}
-                                    </span>
+                                    <div className="flex flex-col items-center">
+                                        <span className={`text-[9px] font-black uppercase tracking-[0.15em] transition-colors duration-300 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                            {s.title}
+                                        </span>
+                                        <span className={`text-[7px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-[0.1em] opacity-0 group-hover:opacity-100 transition-opacity ${isActive ? 'opacity-100' : ''}`}>
+                                            {s.desc}
+                                        </span>
+                                    </div>
                                 </div>
                             );
                         })}

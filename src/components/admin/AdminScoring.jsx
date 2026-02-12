@@ -33,8 +33,8 @@ export default function AdminScoring({ showToast }) {
 
         // Fetch Config (AI Key)
         const fetchConfig = async () => {
-            const { data } = await supabase.from('app_settings').select('ai_assistant').eq('id', 'main').single();
-            if (data?.ai_assistant) setConfig(data.ai_assistant);
+            const { data } = await supabase.from('app_settings').select('gemini_api_key').eq('id', 'main').single();
+            if (data) setConfig(data);
         };
         fetchConfig();
 
@@ -44,7 +44,7 @@ export default function AdminScoring({ showToast }) {
     }, []);
 
     const handleAiAnalysis = async () => {
-        if (!config.google_gemini_api_key) return alert("API Key belum diset! (Cek Pengaturan Aplikasi -> AI Assistant)");
+        if (!config.gemini_api_key) return alert("API Key belum diset! (Cek Pengaturan Aplikasi -> Setup API)");
         try {
             const psiko = selected.psychotest_result?.final_score || 0;
             const studentScore = selected.interview_result?.student_score || 0;
@@ -64,7 +64,7 @@ export default function AdminScoring({ showToast }) {
 
         Berikan rekomendasi (LULUS/TIDAK) dan alasan singkat dalam 2-3 kalimat.
       `;
-            const res = await callGeminiAI(config.google_gemini_api_key, prompt);
+            const res = await callGeminiAI(config.gemini_api_key, prompt);
             setAiAnalysis(res);
         } catch (e) { showToast("Gagal analisis AI", 'error'); }
     };

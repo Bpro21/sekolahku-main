@@ -471,58 +471,108 @@ export default function AuthScreen({ showToast, onBack }) {
             return;
         }
         try {
+            const sanitizedPhone = phone.replace(/[^0-9]/g, '');
+
             // SUPABASE SIGNUP
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
-                    data: { displayName: name }
+                    data: {
+                        displayName: name,
+                        phone: sanitizedPhone
+                    }
                 }
             });
 
             if (authError) throw authError;
 
-            // 1. Create Main Profile
-            const { error: profileError } = await supabase.from('profiles').insert({
-                id: authData.user.id,
-                name,
-                email,
-                phone,
-                role: 'user',
-                // createdAt: new Date(), // handled by default now()
-                // phoneVerified: true // need column?
-            });
-            if (profileError) console.error("Profile creation error", profileError);
-
-            // 2. Create Public Lookup Entry
-            const sanitizedPhone = phone.replace(/[^0-9]/g, '');
-            await supabase.from('user_lookup').insert({
-                phone: sanitizedPhone,
-                email: email,
-                uid: authData.user.id
-            });
-
-            // 3. Create CRM Lead & Conversation (Auto-populate Kanban)
-            const { data: leadData, error: leadError } = await supabase.from('leads').insert({
-                name: name,
-                phone: sanitizedPhone,
-                source: 'Website Register',
-                status: 'followup', // Default Stage 1
-                notes: 'User registered via website'
-            }).select().single();
-
-            if (!leadError && leadData) {
-                await supabase.from('conversations').insert({
-                    lead_id: leadData.id,
-                    phone: sanitizedPhone,
-                    name: name,
-                    status: 'active',
-                    messages: []
+            // 1. Create Main Profile (non-blocking - RLS may fail but user is still created)
+            try {
+                await supabase.from('profiles').insert({
+                    id: authData.user.id,
+                    name,
+                    email,
+                    phone,
+                    role: 'user',
                 });
+            } catch (profileError) {
+                console.warn("Profile creation skipped (RLS issue):", profileError);
             }
 
-            showToast('Pendaftaran Berhasil! Selamat datang.');
+            // 2. Create Public Lookup Entry
+            try {
+                // sanitizedPhone already declared above
+                await supabase.from('user_lookup').insert({
+                    phone: sanitizedPhone,
+                    email: email,
+                    uid: authData.user.id
+                });
+            } catch (lookupError) {
+                console.warn("Lookup creation skipped:", lookupError);
+            }
+
+            // 3. Create CRM Lead & Conversation (Idempotent)
+            try {
+                // Check if lead already exists for this phone
+                const { data: existingLead } = await supabase
+                    .from('leads')
+                    .select('id')
+                    .eq('phone', sanitizedPhone)
+                    .maybeSingle();
+
+                let leadId = existingLead?.id;
+
+                if (!leadId) {
+                    const { data: leadData } = await supabase.from('leads').insert({
+                        name: name,
+                        phone: sanitizedPhone,
+                        source: 'Website Register',
+                        status: 'followup',
+                        notes: 'User registered via website'
+                    }).select().single();
+
+                    if (leadData) leadId = leadData.id;
+                } else {
+                    // Update existing lead name/status if needed
+                    await supabase.from('leads').update({
+                        name: name,
+                        status: 'followup',
+                        updated_at: new Date().toISOString()
+                    }).eq('id', leadId);
+                }
+
+                if (leadId) {
+                    // Check if conversation exists
+                    const { data: existingConv } = await supabase
+                        .from('conversations')
+                        .select('id')
+                        .eq('lead_id', leadId)
+                        .maybeSingle();
+
+                    if (!existingConv) {
+                        await supabase.from('conversations').insert({
+                            lead_id: leadId,
+                            phone: sanitizedPhone,
+                            name: name,
+                            status: 'active',
+                            messages: []
+                        });
+                    }
+                }
+            } catch (leadError) {
+                console.warn("Lead/Conversation sync skipped:", leadError);
+            }
+
+            showToast('Pendaftaran Berhasil! Silakan Login.');
             await logActivity(authData.user, 'CREATE', `User Registered: ${name}`);
+
+            // Switch to Login
+            setIsLogin(true);
+            setPhoneVerified(false);
+            setOtpSent(false);
+            setPassword('');
+            setConfirmPassword('');
         } catch (err) {
             console.error(err);
             showToast(`Gagal daftar: ${err.message}`, 'error');

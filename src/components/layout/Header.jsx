@@ -183,11 +183,11 @@ export default function Header({ user, isAdmin, onLogout, onNavigate, theme, dar
                             className="flex items-center gap-3 p-1.5 pr-3 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
                         >
                             <div className="h-8 w-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20">
-                                {user?.displayName ? user.displayName[0].toUpperCase() : 'U'}
+                                {(user?.user_metadata?.displayName || user?.user_metadata?.full_name)?.[0]?.toUpperCase() || 'U'}
                             </div>
                             <div className="hidden lg:block text-left">
                                 <span className="block text-xs font-black text-slate-800 dark:text-white dark:text-slate-200 leading-tight uppercase tracking-tighter">
-                                    {user?.displayName || 'User'}
+                                    {user?.user_metadata?.displayName || user?.user_metadata?.full_name || 'User'}
                                 </span>
                                 <span className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                                     {isAdmin ? 'Administrator' : 'Wali Murid'}
@@ -201,7 +201,7 @@ export default function Header({ user, isAdmin, onLogout, onNavigate, theme, dar
                             <div className="fixed md:absolute top-20 md:top-full right-4 md:right-0 left-4 md:left-auto mt-4 flex md:w-64 flex-col rounded-3xl border border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] z-[100] min-w-[240px] overflow-hidden animate-slide-down">
                                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                                     <span className="block text-sm font-black text-slate-800 dark:text-white dark:text-slate-200 uppercase tracking-tight">
-                                        {user?.displayName || 'User'}
+                                        {user?.user_metadata?.displayName || user?.user_metadata?.full_name || 'User'}
                                     </span>
                                     <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
                                         {isAdmin ? 'Administrator' : 'Wali Murid'}

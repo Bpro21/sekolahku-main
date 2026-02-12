@@ -38,10 +38,10 @@ export default function UserProfile({ user, showToast }) {
 
                 const data = profileData || {};
                 const initialData = {
-                    displayName: user.user_metadata?.full_name || data.name || '',
+                    displayName: user.user_metadata?.displayName || user.user_metadata?.full_name || data.name || '',
                     email: user.email || '',
                     photoURL: data.photo_url || user.user_metadata?.avatar_url || '',
-                    phone: data.phone || ''
+                    phone: data.phone || user.user_metadata?.phone || ''
                 };
                 setFormData(initialData);
                 setOriginalData(initialData);
@@ -222,7 +222,7 @@ export default function UserProfile({ user, showToast }) {
                                 <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} disabled={uploading} />
                             </label>
                         </div>
-                        <h3 className="font-bold text-lg text-slate-800 text-center">{user.displayName || 'Pengguna'}</h3>
+                        <h3 className="font-bold text-lg text-slate-800 text-center">{user.user_metadata?.displayName || user.user_metadata?.full_name || 'Pengguna'}</h3>
                         <p className="text-sm text-slate-500 text-center">{user.email}</p>
                         <div className="mt-4 w-full">
                             <div className="text-xs font-bold text-slate-400 uppercase text-center mb-1">Role</div>

@@ -18,8 +18,9 @@ export default function AdminPaymentSettings({ showToast }) {
 
     useEffect(() => {
         const fetchConfig = async () => {
-            const { data } = await supabase.from('payment_config').select('*').eq('id', 'main').single();
+            const { data, error } = await supabase.from('payment_config').select('*').eq('id', 'main').maybeSingle();
             if (data) setPayConfig(data);
+            if (error && error.code !== 'PGRST116') console.error("Error fetching payment config:", error);
         };
         fetchConfig();
     }, []);

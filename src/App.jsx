@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Megaphone, CreditCard,
   FileSpreadsheet, FileCheck, FileEdit, Video, ClipboardList,
   Trophy, Building, Timer, Wallet, Settings, User, ArrowRightLeft, MessageCircle, DollarSign,
-  CheckCircle, Clock, ChevronRight, Bell, Search, Filter, Tag, Globe, CalendarClock, GraduationCap, PieChart, Target
+  CheckCircle, Clock, ChevronRight, Bell, Search, Filter, Tag, Globe, CalendarClock, GraduationCap, PieChart, Target, Database
 } from 'lucide-react';
 import { seedMasterData } from './utils/helpers';
 import { Toast, Modal } from './components/ui/Overlays';
@@ -31,6 +31,7 @@ import UserProfile from './components/user/UserProfile';
 // Public Components
 import SchoolWebsite from './components/public/SchoolWebsite';
 import GuidePage from './components/public/GuidePage';
+import NotFound from './components/public/NotFound';
 
 // Admin Components
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -62,6 +63,8 @@ import AdminDemographics from './components/admin/AdminDemographics';
 import AdminSystemLogs from './components/admin/AdminSystemLogs';
 import AdminMarketingTools from './components/admin/AdminMarketingTools';
 import AdminCRM from './components/admin/AdminCRM';
+import AdminUserManager from './components/admin/AdminUserManager';
+import AdminBackup from './components/admin/AdminBackup';
 
 const TAB_TO_PATH = {
   // User
@@ -104,7 +107,9 @@ const TAB_TO_PATH = {
   admin_student_data: '/admin/student-data',
   admin_logs: '/admin/logs',
   admin_marketing: '/admin/marketing',
-  admin_crm: '/admin/crm'
+  admin_crm: '/admin/crm',
+  admin_users: '/admin/users',
+  admin_backup: '/admin/backup'
 };
 
 const THEME_CONFIG = {
@@ -180,7 +185,7 @@ const StudentWrapper = ({ user, showToast }) => {
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPermissions, setAdminPermissions] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -192,6 +197,7 @@ export default function App() {
     app_template: 'berry'
   });
   const [academicYears, setAcademicYears] = useState([]);
+  const [indentInternalActive, setIndentInternalActive] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
@@ -204,7 +210,7 @@ export default function App() {
 
   const handleRegisterClick = () => {
     const hasIndent = academicYears.some(ay => ay.indent_enabled && !ay.is_default);
-    if (hasIndent) {
+    if (hasIndent || indentInternalActive) {
       setShowRegisterModal(true);
     } else {
       navigate('/register');
@@ -252,7 +258,15 @@ export default function App() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        console.log("fetchSettings: calling supabase...");
+        // Check sessionStorage cache first for instant load
+        const cached = sessionStorage.getItem('app_settings_cache');
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          setAppSettings(cachedData.settings);
+          return cachedData.admins;
+        }
+
+
         // SUPABASE: Fetch settings from app_settings table
         const { data, error } = await supabase
           .from('app_settings')
@@ -260,25 +274,27 @@ export default function App() {
           .eq('id', 'main')
           .single();
 
-        console.log("fetchSettings: result received", data ? "Data Found" : "No Data", error);
+
 
         if (data) {
-          setAppSettings({
+          const settings = {
             app_name: data.app_name || 'PSB Online',
-            app_version: 'v1.0 Beta', // You might want to store this in DB too
+            app_version: data.app_version || 'v1.0 Beta',
             app_logo: data.app_logo || '',
-            app_template: data.app_template || 'berry' // storage in DB?
-          });
+            app_template: data.app_template || 'berry'
+          };
+          setAppSettings(settings);
 
-          // SEO & Analytics Implementation (Assuming stored in landing_page JSON or separate columns)
-          // For now, mapping broadly if exist
+          // Cache to sessionStorage for faster subsequent loads
+          const admins = data.crm_config?.admins || data.admins || [];
+          sessionStorage.setItem('app_settings_cache', JSON.stringify({ settings, admins }));
+
+          // SEO & Analytics Implementation
           const seo = data.landing_page?.seo || {};
 
-          // 1. Title
           if (seo.title) document.title = seo.title;
           else if (data.app_name) document.title = data.app_name;
 
-          // 2. Meta Description
           let metaDesc = document.querySelector('meta[name="description"]');
           if (!metaDesc) {
             metaDesc = document.createElement('meta');
@@ -287,7 +303,6 @@ export default function App() {
           }
           if (seo.description) metaDesc.content = seo.description;
 
-          // 3. Meta Keywords
           let metaKeywords = document.querySelector('meta[name="keywords"]');
           if (!metaKeywords) {
             metaKeywords = document.createElement('meta');
@@ -296,7 +311,6 @@ export default function App() {
           }
           if (seo.keywords) metaKeywords.content = seo.keywords;
 
-          // 4. Google Tag Manager
           if (seo.gtm_id && !document.getElementById('gtm_script')) {
             const script = document.createElement('script');
             script.id = 'gtm_script';
@@ -308,7 +322,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             document.head.appendChild(script);
           }
 
-          // 5. Facebook Pixel
           if (seo.pixel_id && !document.getElementById('fb_pixel')) {
             const script = document.createElement('script');
             script.id = 'fb_pixel';
@@ -325,7 +338,7 @@ fbq('track', 'PageView');`;
             document.head.appendChild(script);
           }
 
-          return data.admins || []; // admins JSONB
+          return admins;
         }
       } catch (e) {
         console.error("Failed to load settings", e);
@@ -335,10 +348,16 @@ fbq('track', 'PageView');`;
 
     const fetchAcademicYears = async () => {
       try {
-        const { data, error } = await supabase.from('academic_years').select('*');
-        if (data) setAcademicYears(data);
+        // Fetch academic years and indent settings in parallel
+        const [ayResult, indentSetResult] = await Promise.all([
+          supabase.from('academic_years').select('*'),
+          supabase.from('indent_settings').select('*').maybeSingle()
+        ]);
+
+        if (ayResult.data) setAcademicYears(ayResult.data);
+        if (indentSetResult.data) setIndentInternalActive(indentSetResult.data.active);
       } catch (e) {
-        console.error("Failed to load academic years", e);
+        console.error("Failed to load academic years/indent settings", e);
       }
     };
 
@@ -346,21 +365,17 @@ fbq('track', 'PageView');`;
 
     // SUPABASE AUTH LISTENER
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth State Changed:", event, session?.user?.email);
       const u = session?.user || null;
       if (u) {
-        console.log("User detected, fetching settings...");
 
-        // Timeout Race to prevent infinite loading (Optimized for speed)
+        // Fast timeout (2s) - race against cache or timeout
         const settingsPromise = fetchSettings();
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 1000));
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
 
         const admins = await Promise.race([settingsPromise, timeoutPromise]);
 
         if (!admins) {
-          console.warn("Settings fetch timed out (1s limit). Proceeding with defaults for speed.");
-        } else {
-          console.log("Settings fetched successfully.");
+          // Timeout - proceed with defaults
         }
 
         let isUserAdmin = false;
@@ -378,26 +393,33 @@ fbq('track', 'PageView');`;
           isUserAdmin = true;
         }
 
-        console.log("Setting user state. IsAdmin:", isUserAdmin);
+
         setUser(u);
         setIsAdmin(isUserAdmin);
         setAdminPermissions(perms);
         setLoading(false);
-        // seedMasterData(); // Disable seeding for now or update it
 
         // Redirect logic
         if (location.pathname === '/login') {
           navigate(isUserAdmin ? '/admin' : '/dashboard');
         }
       } else {
-        console.log("No user session. Clearing state.");
         setUser(null);
+        setIsAdmin(false);
         setLoading(false);
       }
     });
 
+    const handleSettingsUpdate = (e) => {
+      if (e.detail) {
+        setAppSettings(prev => ({ ...prev, ...e.detail }));
+      }
+    };
+    window.addEventListener('app-settings-updated', handleSettingsUpdate);
+
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener('app-settings-updated', handleSettingsUpdate);
     };
   }, []);
 
@@ -405,9 +427,8 @@ fbq('track', 'PageView');`;
   useEffect(() => {
     if (loading) {
       const timer = setTimeout(() => {
-        console.warn("Global safety timeout triggered (2.5s). Forcing Entry.");
         setLoading(false);
-      }, 2500);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [loading]);
@@ -440,18 +461,22 @@ fbq('track', 'PageView');`;
     return Component;
   }, [theme]);
 
-  if (loading) return (
-    <div className="h-screen flex flex-col gap-4 items-center justify-center text-emerald-600">
-      <div className="animate-spin"><UploadCloud size={32} /></div>
-      <p className="text-sm text-slate-500">Memuat data...</p>
-      <button
-        onClick={() => { supabase.auth.signOut(); window.location.reload(); }}
-        className="text-xs text-red-500 hover:underline mt-4"
-      >
-        Batalkan & Logout
-      </button>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Memuat Sistem...</p>
+          <button
+            onClick={() => { supabase.auth.signOut(); window.location.reload(); }}
+            className="text-[10px] text-red-500 hover:underline mt-4 font-bold uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity"
+          >
+            Batalkan & Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`font-sans text-slate-800 dark:text-slate-200 flex flex-col ${['/', '/panduan', '/login'].includes(location.pathname) ? 'min-h-screen w-full' : 'md:flex-row h-screen overflow-hidden'} ${theme.mainBg} transition-colors duration-300`}>
@@ -461,6 +486,7 @@ fbq('track', 'PageView');`;
       <Routes>
         <Route path="/" element={<ErrorBoundary><SchoolWebsite user={user} isAdmin={isAdmin} onLogin={() => navigate('/login')} onDashboard={() => navigate(isAdmin ? '/admin' : '/dashboard')} /></ErrorBoundary>} />
         <Route path="/login" element={!user ? <ErrorBoundary><AuthScreen showToast={showToast} onBack={() => navigate('/')} /></ErrorBoundary> : <Navigate to={isAdmin ? '/admin' : '/dashboard'} />} />
+        <Route path="/panduan" element={<GuidePage user={user} isAdmin={isAdmin} />} />
 
         <Route element={user ? (
           <>
@@ -478,7 +504,7 @@ fbq('track', 'PageView');`;
             </div>
 
             {/* Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 w-64 ${theme.sidebarBg} ${theme.sidebarText} transform transition-transform duration-300 ease-in-out flex flex-col md:translate-x-0 md:static ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${(!isAdmin || ['/', '/panduan', '/login'].includes(location.pathname)) ? 'hidden md:hidden' : ''}`}>
+            <aside className={`fixed inset-y-0 left-0 z-50 w-64 ${theme.sidebarBg} ${theme.sidebarText} transform transition-transform duration-300 ease-in-out flex flex-col md:translate-x-0 md:static ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${['/', '/panduan', '/login'].includes(location.pathname) ? 'hidden md:hidden' : ''}`}>
               <div className={`p-6 border-b ${theme.sidebarHeaderBorder} flex justify-between items-center`}>
                 <div className="flex items-center gap-3">
                   {appSettings.app_logo ? (
@@ -498,6 +524,9 @@ fbq('track', 'PageView');`;
                     <SidebarItem icon={<FileText size={18} />} label="Pendaftaran (eksternal)" path="/register" />
                     {academicYears.some(ay => ay.indent_enabled && !ay.is_default) && (
                       <SidebarItem icon={<CalendarClock size={18} />} label="Pendaftaran Inden" path="/register/indent" />
+                    )}
+                    {indentInternalActive && (
+                      <SidebarItem icon={<CalendarClock size={18} />} label="Inden Internal" path="/register/indent-internal" badge="New" />
                     )}
                     <SidebarItem icon={<Users size={18} />} label="Data Anak" path="/students" />
                     <SidebarItem icon={<Megaphone size={18} />} label="Pengumuman" path="/announcements" />
@@ -545,6 +574,7 @@ fbq('track', 'PageView');`;
                     {hasAccess('admin_finance_dashboard') && <SidebarItem icon={<Target size={18} />} label="Marketing Tools" path="/admin/marketing" badge="New" />}
                     {/* @turbo-replace: CRM Sidebar Item */}
                     {hasAccess('admin_followup') && <SidebarItem icon={<Users size={18} />} label="CRM & WhatsApp" path="/admin/crm" badge="Beta" />}
+                    {hasAccess('admin_app_settings') && <SidebarItem icon={<Users size={18} />} label="Manajemen Akun" path="/admin/users" />}
 
                     <div className="text-xs font-bold px-4 py-2 mt-4 flex items-center gap-2 opacity-50">
                       <span className="uppercase tracking-wider">Pengaturan</span>
@@ -556,6 +586,7 @@ fbq('track', 'PageView');`;
                     {hasAccess('admin_app_settings') && <SidebarItem icon={<Settings size={18} />} label="Aplikasi" path="/admin/settings/app" />}
                     {hasAccess('admin_website_settings') && <SidebarItem icon={<Globe size={18} />} label="Website" path="/admin/settings/website" />}
                     {hasAccess('admin_app_settings') && <SidebarItem icon={<ClipboardList size={18} />} label="Sistem Log" path="/admin/logs" />}
+                    {hasAccess('admin_app_settings') && <SidebarItem icon={<Database size={18} />} label="Backup & Restore" path="/admin/backup" />}
                   </>
                 )}
               </div>
@@ -615,8 +646,8 @@ fbq('track', 'PageView');`;
             </div>
           </>
         ) : <Navigate to="/login" />}>
-          {/* USER ROUTES */}
-          {!isAdmin && (
+          {/* USER ROUTES - Available for ALL logged in users (including admin) */}
+          {user && (
             <>
               <Route path="/dashboard" element={<UserDashboard user={user} onNavigate={handleNavigate} showToast={showToast} />} />
               <Route path="/register" element={<RegisterWrapper user={user} showToast={showToast} isIndent={false} />} />
@@ -666,17 +697,18 @@ fbq('track', 'PageView');`;
               {(hasAccess('admin_verify') || hasAccess('admin_report')) && <Route path="/admin/reregistration" element={<AdminReregistration showToast={showToast} />} />}
               {hasAccess('admin_report') && <Route path="/admin/student-data" element={<AdminStudentData showToast={showToast} />} />}
               {hasAccess('admin_app_settings') && <Route path="/admin/logs" element={<AdminSystemLogs showToast={showToast} />} />}
+              {hasAccess('admin_app_settings') && <Route path="/admin/backup" element={<AdminBackup showToast={showToast} />} />}
               {hasAccess('admin_finance_dashboard') && <Route path="/admin/marketing" element={<AdminMarketingTools showToast={showToast} />} />}
               {/* @turbo-replace: CRM Route - Allow all admins for easier access */}
               <Route path="/admin/crm" element={<AdminCRM showToast={showToast} />} />
+              <Route path="/admin/users" element={<AdminUserManager showToast={showToast} />} />
+              {/* Profile for Admins */}
+              <Route path="/profile" element={<UserProfile user={user} showToast={showToast} />} />
             </>
           )}
         </Route>
 
-        {/* Catch All - Redirect to home which handles Auth/Role redirect */}
-        <Route path="/" element={<SchoolWebsite user={user} isAdmin={isAdmin} onLogin={() => navigate('/login')} />} />
-        <Route path="/panduan" element={<GuidePage user={user} isAdmin={isAdmin} />} />
-        <Route path="/login" element={<AuthScreen />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
 
       {/* Overlay for Mobile Sidebar */}
@@ -715,6 +747,21 @@ fbq('track', 'PageView');`;
               <ChevronRight size={20} />
             </div>
           </button>
+
+          {indentInternalActive && (
+            <button onClick={() => { setShowRegisterModal(false); navigate('/register/indent-internal'); }} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group text-left shadow-sm">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <CalendarClock size={24} />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-white text-sm uppercase tracking-wide">Inden Internal</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Khusus siswa internal (naik jenjang).</p>
+              </div>
+              <div className="ml-auto text-slate-300 group-hover:text-blue-500 transition-colors">
+                <ChevronRight size={20} />
+              </div>
+            </button>
+          )}
         </div>
       </Modal>
     </div>

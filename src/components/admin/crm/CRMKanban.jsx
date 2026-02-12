@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../config/supabase';
 import { Card, Button, Input } from '../../ui/Elements';
 import { Modal } from '../../ui/Overlays';
-import { Plus, MoreHorizontal, Phone, Calendar, ArrowRight, User, Loader2, Trash2, Search, BarChart2, CheckCircle, XCircle, Tag, FileText, Download } from 'lucide-react';
+import { Plus, MoreHorizontal, Phone, Calendar, ArrowRight, User, Loader2, Trash2, Search, BarChart2, CheckCircle, XCircle, Tag, FileText, Download, Sparkles, Send, RefreshCw } from 'lucide-react';
+import { generateAIResponse } from '../../../utils/gemini';
 
 const PIPELINE_STAGES = [
+    { id: 'inquiry', label: 'Inquiry', color: 'slate' }, // New Stage
     { id: 'followup', label: 'Follow Up', color: 'blue' },
     { id: 'biodata', label: 'Isi Biodata', color: 'cyan' },
     { id: 'bayar_daftar', label: 'Bayar Daftar', color: 'amber' },
@@ -14,7 +16,7 @@ const PIPELINE_STAGES = [
     { id: 'daftar_ulang', label: 'Daftar Ulang', color: 'pink' },
     { id: 'lunas', label: 'Lunas', color: 'emerald' },
     { id: 'termin', label: 'Cicilan/Termin', color: 'teal' },
-    { id: 'lost', label: 'Batal / Lost', color: 'slate' }
+    { id: 'lost', label: 'Batal / Lost', color: 'red' }
 ];
 
 export default function CRMKanban({ showToast }) {
@@ -48,6 +50,13 @@ export default function CRMKanban({ showToast }) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingLead, setEditingLead] = useState(null);
 
+    // AI Follow Up State
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+    const [followUpLead, setFollowUpLead] = useState(null);
+    const [followUpMessage, setFollowUpMessage] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [appSettings, setAppSettings] = useState(null);
+
     const fetchLeads = async () => {
         setLoading(true);
         try {
@@ -73,7 +82,10 @@ export default function CRMKanban({ showToast }) {
 
     const fetchSettings = async () => {
         try {
-            const { data, error } = await supabase.from('app_settings').select('crm_config, admins').single();
+            const { data, error } = await supabase.from('app_settings').select('crm_config, admins, wa_provider, fonnte_token, school_name').single();
+            if (data) {
+                setAppSettings(data);
+            }
             if (data?.crm_config?.tags) {
                 setAvailableTags(data.crm_config.tags);
             }
@@ -88,6 +100,7 @@ export default function CRMKanban({ showToast }) {
             setSettingsLoading(false);
         }
     };
+
 
 
 
@@ -319,6 +332,127 @@ export default function CRMKanban({ showToast }) {
         }
     };
 
+    // AI Follow Up Logic
+    const openFollowUpModal = (lead) => {
+        setFollowUpLead(lead);
+        setFollowUpMessage('');
+        setShowFollowUpModal(true);
+        generateFollowUpMessage(lead);
+    };
+
+    const generateFollowUpMessage = async (lead) => {
+        if (!lead) return;
+        setIsGenerating(true);
+        try {
+            const tags = (lead.tags || []).join(', ');
+            const stage = PIPELINE_STAGES.find(s => s.id === lead.status)?.label || lead.status;
+
+            let instruction = `Buatkan pesan WhatsApp singkat, sopan, dan efektif untuk follow up calon siswa ini.
+            Nama: ${lead.name}
+            Tahapan: ${stage}
+            Info Tags: ${tags || 'Tidak ada tags specific'}
+            
+            Instruksi Khusus Berdasarkan Tags:
+            - Jika tags mengandung 'Cold' atau 'Lost': Nada harus sangat ramah, humble, menanyakan kabar, dan sekadar mengingatkan (soft selling). Jangan memaksa.
+            - Jika tags mengandung 'Hot' atau 'Warm': Nada antusias, to-the-point, dan berikan Call to Action yang jelas (urgensi).
+            - Jika tags 'Follow Up': Tanyakan apakah ada kendala dalam proses pendaftaran.
+            
+            Ketentuan:
+            - Gunakan Bahasa Indonesia yang natural untuk WhatsApp.
+            - Jangan sertakan Subject. Langsung isi pesan.
+            - Jangan terlalu panjang (max 2-3 paragraf pendek).`;
+
+            const generated = await generateAIResponse(instruction, `Nama Sekolah: ${appSettings?.school_name || 'Sekolah Kami'}`);
+            setFollowUpMessage(generated.replace(/^User:.*\nAssistant:/s, '').trim());
+        } catch (error) {
+            console.error("AI Error:", error);
+            showToast('Gagal generate pesan AI', 'error');
+            setFollowUpMessage("Halo " + lead.name + ", apa kabar? Kami ingin menanyakan kelanjutan pendaftaran Anda. Terima kasih.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const sendFollowUp = async () => {
+        if (!followUpLead || !followUpMessage) return;
+        setSubmitting(true);
+        try {
+            const targetPhone = followUpLead.phone;
+            const isBaileys = appSettings?.wa_provider === 'baileys';
+
+            if (isBaileys) {
+                // Cari ID percakapan dulu
+                let chatId;
+                const { data: conv } = await supabase.from('conversations').select('id, messages').eq('lead_id', followUpLead.id).maybeSingle();
+
+                if (conv) {
+                    chatId = conv.id;
+                } else {
+                    // Create new conv if not exists
+                    const { data: newConv, error: insertError } = await supabase.from('conversations').insert({
+                        lead_id: followUpLead.id,
+                        phone: targetPhone,
+                        name: followUpLead.name,
+                        status: 'open',
+                        messages: []
+                    }).select().single();
+
+                    if (insertError || !newConv) {
+                        throw new Error("Gagal membuat percakapan baru: " + (insertError?.message || "Unknown error"));
+                    }
+                    chatId = newConv.id;
+                }
+
+                const newMessage = {
+                    id: Date.now(),
+                    text: followUpMessage,
+                    sender: 'agent',
+                    timestamp: new Date().toISOString(),
+                    status: 'pending' // Server will pick up
+                };
+
+                // Update DB
+                const currentMessages = conv?.messages || [];
+                await supabase.from('conversations').update({
+                    messages: [...currentMessages, newMessage],
+                    last_message_preview: followUpMessage,
+                    last_message_at: new Date(),
+                    phone: targetPhone
+                }).eq('id', chatId);
+
+            } else {
+                // Fonnte Flow
+                if (!appSettings?.fonnte_token) {
+                    throw new Error("Token Fonnte belum disetting");
+                }
+
+                const formData = new FormData();
+                formData.append('target', targetPhone);
+                formData.append('message', followUpMessage);
+
+                const response = await fetch('https://api.fonnte.com/send', {
+                    method: 'POST',
+                    headers: { 'Authorization': appSettings.fonnte_token },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    // Fonnte might return 200 with error inside, but check status too
+                    throw new Error("Gagal mengirim ke Fonnte");
+                }
+            }
+
+            showToast('Pesan Follow Up terkirim!', 'success');
+            setShowFollowUpModal(false);
+            setFollowUpMessage('');
+        } catch (error) {
+            console.error("Send Error:", error);
+            showToast('Gagal mengirim pesan: ' + error.message, 'error');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     // Filter leads by search query
     const filteredLeads = leads.filter(lead => {
         if (!searchQuery.trim()) return true;
@@ -496,10 +630,18 @@ export default function CRMKanban({ showToast }) {
                                                                         <button
                                                                             onClick={() => moveLead(lead.id, PIPELINE_STAGES[PIPELINE_STAGES.findIndex(s => s.id === stage.id) + 1].id)}
                                                                             className="p-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-400 hover:text-emerald-600 rounded-lg transition-colors"
+                                                                            title="Pindahkan ke tahap selanjutnya"
                                                                         >
                                                                             <ArrowRight size={14} />
                                                                         </button>
                                                                     )}
+                                                                    <button
+                                                                        onClick={() => openFollowUpModal(lead)}
+                                                                        className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-400 hover:text-indigo-600 rounded-lg transition-colors"
+                                                                        title="Follow Up dengan AI"
+                                                                    >
+                                                                        <Sparkles size={14} />
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -567,7 +709,10 @@ export default function CRMKanban({ showToast }) {
                                     <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 text-center">
                                         <h4 className="text-xs font-bold text-blue-600 uppercase">Inquiry Hari Ini</h4>
                                         <p className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-1">
-                                            {leads.filter(l => new Date(l.created_at).toDateString() === new Date().toDateString()).length}
+                                            {leads.filter(l =>
+                                                new Date(l.created_at).toDateString() === new Date().toDateString() &&
+                                                l.source !== 'WhatsApp Auto'
+                                            ).length}
                                         </p>
                                     </div>
                                     <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800 text-center">
@@ -816,6 +961,72 @@ export default function CRMKanban({ showToast }) {
                         <Button variant="secondary" onClick={() => setShowEditModal(false)}>Batal</Button>
                         <Button onClick={handleUpdateLead} className="bg-emerald-600 text-white" disabled={submitting}>Simpan Perubahan</Button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* AI Follow Up Modal */}
+            <Modal isOpen={showFollowUpModal} onClose={() => setShowFollowUpModal(false)} title="AI Follow Up Generator">
+                <div className="space-y-4">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h4 className="font-bold text-indigo-800 dark:text-indigo-300 text-sm mb-1">{followUpLead?.name}</h4>
+                                <div className="flex gap-2 text-xs text-indigo-600 dark:text-indigo-400">
+                                    <span className="flex items-center gap-1"><Phone size={12} /> {followUpLead?.phone}</span>
+                                    <span className="flex items-center gap-1 opacity-70">|</span>
+                                    <span className="uppercase font-bold">{PIPELINE_STAGES.find(s => s.id === followUpLead?.status)?.label}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1 max-w-[150px] justify-end">
+                                {(followUpLead?.tags || []).map((t, i) => (
+                                    <span key={i} className="text-[10px] px-1.5 py-0.5 bg-white dark:bg-slate-800 text-indigo-600 rounded border border-indigo-100">
+                                        {t}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <textarea
+                            value={followUpMessage}
+                            onChange={(e) => setFollowUpMessage(e.target.value)}
+                            className="w-full h-40 p-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                            placeholder="Pesan akan digenerate otomatis..."
+                        />
+                        {isGenerating && (
+                            <div className="absolute inset-0 bg-white/80 dark:bg-slate-800/80 flex flex-col items-center justify-center rounded-lg backdrop-blur-sm">
+                                <Loader2 className="animate-spin text-indigo-500 mb-2" size={32} />
+                                <span className="text-xs font-bold text-indigo-600 animate-pulse">Sedang meracik kata-kata...</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => generateFollowUpMessage(followUpLead)}
+                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            disabled={isGenerating}
+                        >
+                            <RefreshCw size={16} className={`mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                            Regenerate
+                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="secondary" onClick={() => setShowFollowUpModal(false)}>Batal</Button>
+                            <Button
+                                onClick={sendFollowUp}
+                                className="bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200 dark:shadow-none"
+                                disabled={!followUpMessage || isGenerating || submitting}
+                            >
+                                <Send size={16} className="mr-2" />
+                                {submitting ? 'Mengirim...' : 'Kirim WhatsApp'}
+                            </Button>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-center text-slate-400">
+                        Pesan akan dikirim via {appSettings?.wa_provider === 'baileys' ? 'Baileys Server' : 'Fonnte Cloud'}.
+                    </p>
                 </div>
             </Modal>
             {/* Tags Management Modal */}

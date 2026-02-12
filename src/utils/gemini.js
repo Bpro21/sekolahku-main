@@ -17,7 +17,8 @@ export const generateAIResponse = async (userMessage, context = "") => {
             return "Maaf, fitur AI belum dikonfigurasi. Admin harap cek pengaturan API Key.";
         }
 
-        console.log("🔑 Gemini Key found. Model:", settings.gemini_model || "gemini-1.5-flash");
+        const maskedKey = settings.gemini_api_key ? `...${settings.gemini_api_key.slice(-4)}` : 'MISSING';
+        console.log(`🔑 Gemini Key found (${maskedKey}). Model:`, settings.gemini_model || "gemini-1.5-flash");
 
         // 2. Initialize Gemini
         const genAI = new GoogleGenerativeAI(settings.gemini_api_key);

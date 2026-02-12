@@ -58,7 +58,15 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
 
             // Fetch Paths
             const { data: pData } = await supabase.from('paths').select('*');
-            if (pData) setPaths(pData);
+            if (pData && pData.length > 0) {
+                setPaths(pData);
+            } else {
+                setPaths([
+                    { id: 'internal', name: 'Internal' },
+                    { id: 'reg', name: 'Reguler' },
+                    { id: 'prestasi', name: 'Prestasi' }
+                ]);
+            }
 
             // Fetch Waves - INTERNAL INDENT LOGIC
             const { data: wData } = await supabase.from('waves').select('*').eq('active', true);
@@ -183,7 +191,7 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
 
             const regData = {
                 user_id: user.id, // Supabase user id
-                parent_name: user.displayName || user.email,
+                parent_name: user.user_metadata?.displayName || user.user_metadata?.full_name || user.email,
                 student_name: formData.student_new.name,
                 student_religion: formData.student_new.religion,
                 unit_id: formData.unit_id,
@@ -255,54 +263,65 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
     );
 
     const steps_list = [
-        { title: 'Personal', icon: User },
-        { title: 'Pendidikan', icon: GraduationCap },
-        { title: 'Alamat', icon: MapPin },
-        { title: 'Keluarga', icon: Users },
-        { title: 'Pilihan & Jalur', icon: School },
-        { title: 'Dokumen', icon: FileText },
-        { title: 'Review', icon: CheckSquare }
+        { title: 'Personal', icon: User, desc: 'Data Diri' },
+        { title: 'Pendidikan', icon: GraduationCap, desc: 'Sekolah' },
+        { title: 'Alamat', icon: MapPin, desc: 'Lokasi' },
+        { title: 'Keluarga', icon: Users, desc: 'Orang Tua' },
+        { title: 'Pilihan', icon: School, desc: 'Unit & Jalur' },
+        { title: 'Dokumen', icon: FileText, desc: 'Upload' },
+        { title: 'Review', icon: CheckSquare, desc: 'Konfirmasi' }
     ];
 
     return (
         <div className="max-w-4xl mx-auto px-1 md:px-0">
             <Card className="p-0 overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl shadow-emerald-900/5 rounded-[2.5rem] bg-white dark:!bg-slate-900 relative">
-                {/* Progress Bar */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-slate-100">
-                    <div className="h-full bg-emerald-500 transition-all duration-700 ease-out" style={{ width: `${(step / steps_list.length) * 100}%` }} />
+                {/* Progress Bar (High Fidelity) */}
+                <div className="absolute top-0 left-0 w-full h-2.5 bg-slate-100 dark:bg-slate-800">
+                    <div className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-blue-500 transition-all duration-1000 ease-in-out relative overflow-hidden"
+                        style={{ width: `${(step / steps_list.length) * 100}%` }}>
+                        <div className="absolute inset-0 bg-white/20 animate-shimmer"></div>
+                    </div>
                 </div>
 
-                <div className="p-6 md:p-12">
-                    <div className="mb-10 text-center md:text-left">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-4">
-                            Step {step} of {steps_list.length}
+                <div className="p-8 md:p-16">
+                    <div className="mb-12 text-center">
+                        <div className="inline-flex items-center gap-3 px-5 py-2 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-full text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-6 backdrop-blur-sm border border-emerald-100 dark:border-emerald-900/30">
+                            Sekolahku Wizard • Step {step}/{steps_list.length}
                         </div>
-                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tighter uppercase leading-none">
-                            Formulir <span className="text-emerald-600">Inden Internal</span>
+                        <h2 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tighter uppercase leading-none mb-4">
+                            Formulir <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Inden Internal</span>
                         </h2>
-                        <p className="text-slate-400 text-sm mt-2 font-medium">Lengkapi seluruh data untuk pendaftaran inden ke jenjang berikutnya.</p>
+                        <div className="w-20 h-1.5 bg-gradient-to-r from-emerald-600 to-teal-500 mx-auto rounded-full mb-6"></div>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-lg mx-auto leading-relaxed">Pendaftaran eksklusif bagi siswa aktif Yayasan untuk melanjutkan jenjang pendidikan berikutnya secara prioritas.</p>
                     </div>
 
-                    {/* Step Icons */}
-                    <div className="flex justify-between mb-12 relative overflow-x-auto no-scrollbar py-4 gap-4 px-2">
+                    {/* Step Icons (Premium Design) */}
+                    <div className="flex justify-between mb-16 relative overflow-x-auto no-scrollbar py-6 gap-6 px-2">
                         {steps_list.map((s, idx) => {
                             const Icon = s.icon;
                             const isActive = step === idx + 1;
                             const isCompleted = step > idx + 1;
                             return (
-                                <div key={idx} className="flex flex-col items-center gap-2 min-w-fit first:pl-0 last:pr-0">
+                                <div key={idx} className="flex flex-col items-center gap-3 min-w-fit first:pl-0 last:pr-0 group">
                                     <div
                                         onClick={() => isCompleted && setStep(idx + 1)}
-                                        className={`w-12 h-12 rounded-2xl flex items-center justify-center border-4 transition-all duration-500 cursor-pointer ${isActive
-                                            ? 'bg-emerald-600 border-emerald-50 text-white shadow-xl shadow-emerald-200 scale-110'
-                                            : (isCompleted ? 'bg-emerald-50 border-emerald-50 text-emerald-600' : 'bg-slate-50 border-slate-50 text-slate-300')
+                                        className={`w-14 h-14 rounded-2xl flex items-center justify-center border-4 transition-all duration-700 cursor-pointer ${isActive
+                                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-white dark:border-slate-800 text-white shadow-2xl shadow-emerald-500/20 scale-125 z-10'
+                                            : (isCompleted
+                                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800 text-emerald-600'
+                                                : 'bg-slate-50 dark:bg-slate-800 border-slate-50 dark:border-slate-800 text-slate-300 dark:text-slate-600')
                                             }`}
                                     >
-                                        {isCompleted ? <CheckCircle size={20} /> : <Icon size={20} />}
+                                        {isCompleted ? <CheckCircle size={22} /> : <Icon size={22} />}
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>
-                                        {s.title}
-                                    </span>
+                                    <div className="flex flex-col items-center">
+                                        <span className={`text-[9px] font-black uppercase tracking-[0.15em] transition-colors duration-300 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                            {s.title}
+                                        </span>
+                                        <span className={`text-[7px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-[0.1em] opacity-0 group-hover:opacity-100 transition-opacity ${isActive ? 'opacity-100' : ''}`}>
+                                            {s.desc}
+                                        </span>
+                                    </div>
                                 </div>
                             );
                         })}

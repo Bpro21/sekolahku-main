@@ -26,6 +26,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     const [selectedBranchId, setSelectedBranchId] = useState(null);
 
     const [branches, setBranches] = useState([]);
+    const [waves, setWaves] = useState([]);
     const [registrations, setRegistrations] = useState([]);
     const [academicYears, setAcademicYears] = useState([]);
     const [activeAcademicYear, setActiveAcademicYear] = useState(null);
@@ -40,35 +41,69 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                 const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 'main').single();
                 if (settingsData) {
                     setSettings(settingsData);
-                    // Assuming apiKey might be stored in a separate trusted edge function or obscured, 
-                    // but for migration parity we check if it's in settings jsonb or another table
-                    // Here we just hardcode or leave blank if not found in main settings
+                    // Set API key for FloatingAssistant chatbot
+                    if (settingsData.gemini_api_key) {
+                        setApiKey(settingsData.gemini_api_key);
+                    }
                 }
 
+                // 2. Academic Years
                 const { data: ayData } = await supabase.from('academic_years').select('*');
+                let activeYear = null;
                 if (ayData) {
                     setAcademicYears(ayData);
-                    const active = ayData.find(y => y.is_active) || ayData.find(y => y.is_default) || ayData[0];
-                    setActiveAcademicYear(active);
+                    activeYear = ayData.find(y => y.is_active) || ayData.find(y => y.is_default) || ayData[0];
+                    setActiveAcademicYear(activeYear);
                 }
 
-                // 2. Fetch Units & Registrations
+                // 3. Waves
+                const { data: wavesData } = await supabase.from('waves').select('*').eq('active', true);
+                if (wavesData) setWaves(wavesData);
+
+                // 4. Units
                 const { data: unitsData } = await supabase.from('units').select('*');
                 const fetchedBranches = unitsData || [];
-                setBranches(fetchedBranches);
 
-                const { data: regsData, count } = await supabase.from('registrations').select('*', { count: 'exact' });
+                const { data: regsData } = await supabase.from('registrations').select('*');
                 const fetchedRegs = regsData || [];
                 setRegistrations(fetchedRegs);
 
-                // 3. Process Data
+                // 5. Process Stats (Dynamic Filled Counts)
+                const TAKEN_STATUS = ['verified', 'verifying_payment', 'paid', 'paid_registration', 'accepted', 'lulus', 're_registration', 'student', 'psychotest_done', 'interview_accepted'];
+
+                const stats = { branches: {}, majors: {} };
+                fetchedRegs.forEach(r => {
+                    const yearMatch = r.academic_year === activeYear?.year || r.academic_year_id === activeYear?.id;
+                    if (!yearMatch || !TAKEN_STATUS.includes(r.status)) return;
+
+                    const uid = r.unit_id || r.unit_selection; // fallback to unit_selection if unit_id missing
+                    if (uid) {
+                        stats.branches[uid] = (stats.branches[uid] || 0) + 1;
+                        const m = (r.major || r.major_1 || '').toLowerCase();
+                        if (m) {
+                            const majorKey = `${uid}-${m}`;
+                            stats.majors[majorKey] = (stats.majors[majorKey] || 0) + 1;
+                        }
+                    }
+                });
+
+                const branchesWithStats = fetchedBranches.map(b => ({
+                    ...b,
+                    filled: stats.branches[b.id] || 0,
+                    majors: (b.academic_configs?.[activeYear?.id]?.majors || b.majors || []).map(m => ({
+                        ...m,
+                        filled: stats.majors[`${b.id}-${(m.name || '').toLowerCase()}`] || 0
+                    }))
+                }));
+                setBranches(branchesWithStats);
+
+                // 5. Process Data
                 let payInfo = "Belum ada informasi biaya.";
                 // We might need a separate query for payment config if it's complex
                 // For now, assuming standard text or hardcoded
 
-                const branchText = fetchedBranches.map(b => {
-                    const count = fetchedRegs.filter(r => r.unit_selection === b.name || r.unit_id === b.id).length;
-                    return `- Cabang ${b.name}: Kapasitas ${b.quota} Siswa. (Saat ini terdaftar: ${count} siswa).`;
+                const branchText = branchesWithStats.map(b => {
+                    return `- Cabang ${b.name}: Kapasitas ${b.quota} Siswa. (Terisi: ${b.filled} siswa).`;
                 }).join('\n');
 
                 const summary = `
@@ -136,9 +171,9 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     // Auto-select first available branch for fee section
     useEffect(() => {
         // Filter branches based on Active Academic Year's unit_ids
-        let availableBranches = branches;
+        let availableBranches = branches.filter(b => b.open !== false);
         if (activeAcademicYear && activeAcademicYear.unit_ids && activeAcademicYear.unit_ids.length > 0) {
-            availableBranches = branches.filter(b => activeAcademicYear.unit_ids.includes(b.id));
+            availableBranches = availableBranches.filter(b => activeAcademicYear.unit_ids.includes(b.id));
         }
 
         if (availableBranches.length > 0) {
@@ -296,10 +331,46 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     return (
         <div className="font-sans text-gray-800 bg-gray-50 pb-24 md:pb-0 min-h-screen w-full">
 
-            {/* Announcement Bar */}
-            <div className="bg-yellow-500 text-blue-900 py-2 text-sm text-center font-bold px-4">
-                {settings?.landing_page?.announcement_bar || '🚀 Pendaftaran Gelombang 1 DIBUKA! Dapatkan potongan DSP hingga 2 Juta Rupiah.'}
-            </div>
+            {/* Announcement Marquee Bar */}
+            {(() => {
+                const announcementText = settings?.landing_page?.announcement_bar
+                    || (() => {
+                        const activeWave = waves.find(w => w.year === activeAcademicYear?.year && w.active);
+                        if (activeWave) return `🚀 Pendaftaran ${activeWave.name} T.A ${activeWave.year} DIBUKA! Segera Ambil Kuota Anda.`;
+                        return '🚀 Pendaftaran Siswa Baru Telah DIBUKA! Dapatkan potongan DSP bagi pendaftar awal.';
+                    })();
+
+                const bgColor = settings?.landing_page?.marquee_bg_color || '#2563eb';
+                const textColor = settings?.landing_page?.marquee_text_color || '#ffffff';
+                const speed = settings?.landing_page?.marquee_speed || 30;
+
+                return (
+                    <div
+                        className="py-2.5 overflow-hidden whitespace-nowrap relative"
+                        style={{ backgroundColor: bgColor }}
+                    >
+                        <div
+                            className="inline-flex animate-marquee"
+                            style={{
+                                animation: `marquee ${speed}s linear infinite`,
+                                color: textColor
+                            }}
+                        >
+                            {[...Array(4)].map((_, i) => (
+                                <span key={i} className="mx-16 text-xs md:text-sm font-bold tracking-wide">
+                                    {announcementText}
+                                </span>
+                            ))}
+                        </div>
+                        <style>{`
+                            @keyframes marquee {
+                                0% { transform: translateX(0%); }
+                                100% { transform: translateX(-50%); }
+                            }
+                        `}</style>
+                    </div>
+                );
+            })()}
 
 
 
@@ -787,7 +858,8 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     {/* Level Tabs (Now Branch Tabs) */}
                     <div className="flex justify-center gap-2 mb-8 flex-wrap">
                         {branches
-                            .filter(branch => !activeAcademicYear?.unit_ids || activeAcademicYear.unit_ids.includes(branch.id))
+                            .filter(branch => branch.open !== false)
+                            .filter(branch => !activeAcademicYear?.unit_ids || activeAcademicYear.unit_ids.length === 0 || activeAcademicYear.unit_ids.includes(branch.id))
                             .map(branch => (
                                 <button
                                     key={branch.id}
@@ -822,17 +894,55 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         const displayFeeBreakdown = config?.fee_breakdown || selectedBranch.fee_breakdown || selectedBranch.cost_breakdown || [];
                         const displayReg = config?.cost_reg ?? selectedBranch.cost_reg ?? 0;
                         const displayRereg = config?.cost_rereg ?? selectedBranch.cost_rereg ?? 0;
+                        const displaySpp = config?.cost_spp ?? selectedBranch.cost_spp ?? 850000;
+                        const displaySppIncludes = config?.spp_includes || selectedBranch.spp_includes || [];
 
                         return (
                             <div className="max-w-4xl mx-auto">
                                 {/* Branch Name Badge */}
-                                <div className="text-center mb-6">
+                                <div className="text-center mb-6 flex flex-col items-center gap-2">
                                     <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold">
                                         <School size={16} />
                                         {selectedBranch.name}
                                         {activeAcademicYear && <span className="text-blue-500 font-normal">({activeAcademicYear.year})</span>}
                                     </span>
+                                    {(() => {
+                                        const activeWave = waves.find(w => w.year === activeAcademicYear?.year && w.active);
+                                        const quota = config?.quota ?? selectedBranch.quota ?? 0;
+                                        const filled = selectedBranch.filled || 0;
+                                        const remaining = Math.max(0, quota - filled);
+
+                                        return (
+                                            <div className="flex gap-2">
+                                                {activeWave && (
+                                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                                                        {activeWave.name}
+                                                    </span>
+                                                )}
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${remaining <= 5 ? 'bg-rose-100 text-rose-700 animate-pulse' : 'bg-blue-100 text-blue-700'}`}>
+                                                    Sisa Kuota: {remaining} Kursi
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
+
+                                {selectedBranch.level === 'SMK' && (
+                                    <div className="mb-8 p-6 bg-white border border-blue-100 rounded-2xl shadow-sm">
+                                        <h4 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <div className="w-1 h-4 bg-blue-600 rounded-full"></div>
+                                            Pilihan Jurusan & Kuota
+                                        </h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {(config?.majors || selectedBranch.majors || []).map((m, idx) => (
+                                                <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-100 group hover:border-blue-300 transition-colors">
+                                                    <div className="font-bold text-gray-800 mb-1 group-hover:text-blue-700 transition-colors">{m.name}</div>
+                                                    <div className="text-[10px] text-gray-500 font-bold uppercase">Sisa: {Math.max(0, (m.quota || 0) - (m.filled || 0))} Kursi</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid md:grid-cols-2 gap-8">
                                     {/* Card Biaya Masuk */}
@@ -878,14 +988,14 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                         <p className="text-gray-500 text-sm mb-6">Biaya operasional pendidikan rutin.</p>
 
                                         <div className="flex items-baseline mb-6">
-                                            <span className="text-4xl font-bold text-gray-900">Rp {(selectedBranch.cost_spp || 850000).toLocaleString()}</span>
+                                            <span className="text-4xl font-bold text-gray-900">Rp {(displaySpp).toLocaleString()}</span>
                                             <span className="text-gray-500 ml-2">/ bulan</span>
                                         </div>
 
                                         <h4 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wide">Termasuk:</h4>
                                         <ul className="space-y-3">
-                                            {(selectedBranch.spp_includes && selectedBranch.spp_includes.length > 0) ? (
-                                                selectedBranch.spp_includes.map((item, i) => (
+                                            {(displaySppIncludes && displaySppIncludes.length > 0) ? (
+                                                displaySppIncludes.map((item, i) => (
                                                     <li key={i} className="flex items-center gap-3 text-sm text-gray-700">
                                                         <CheckCircle size={16} className="text-green-500 shrink-0" />
                                                         {item}

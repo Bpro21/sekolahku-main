@@ -25,7 +25,8 @@ const ADMIN_MODULES = [
     { id: 'admin_app_settings', label: 'Pengaturan Aplikasi' },
     { id: 'admin_website_settings', label: 'Pengaturan Website' },
     { id: 'admin_resignation', label: 'Pengunduran Diri' },
-    { id: 'admin_vouchers', label: 'Voucher & Diskon' }
+    { id: 'admin_vouchers', label: 'Voucher & Diskon' },
+    { id: 'admin_users', label: 'Manajemen Akun' }
 ];
 
 export default function AdminAppSettings({ showToast }) {
@@ -231,6 +232,23 @@ export default function AdminAppSettings({ showToast }) {
                 'Memperbarui Pengaturan Aplikasi',
                 { section: activeSection }
             );
+
+            // Update Session Storage Cache
+            const currentCache = JSON.parse(sessionStorage.getItem('app_settings_cache') || '{}');
+            const newAppSettings = {
+                app_name: settings.app_name,
+                app_version: settings.app_version,
+                app_logo: settings.app_logo,
+                app_template: settings.app_template
+            };
+
+            sessionStorage.setItem('app_settings_cache', JSON.stringify({
+                ...currentCache,
+                settings: newAppSettings
+            }));
+
+            // Dispatch Event for Real-time Update
+            window.dispatchEvent(new CustomEvent('app-settings-updated', { detail: newAppSettings }));
 
             showToast('Pengaturan aplikasi berhasil disimpan!');
         } catch (error) {

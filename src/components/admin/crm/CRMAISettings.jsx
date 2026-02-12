@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../config/supabase';
-import { Card, Button, Input } from '../../ui/Elements';
+import { Button, Input } from '../../ui/Elements';
 import { Modal } from '../../ui/Overlays';
-import { Bot, Plus, Trash2, Save, FileText, ToggleLeft, ToggleRight, Sparkles, Loader2, Key, MessageSquare, Server } from 'lucide-react';
+import { Plus, Trash2, FileText, ToggleLeft, ToggleRight, Sparkles, Loader2 } from 'lucide-react';
 
 export default function CRMAISettings({ showToast }) {
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(false);
-
-    // App Settings State
-    const [settings, setSettings] = useState({
-        fonnte_token: '',
-        gemini_api_key: '',
-        gemini_model: 'gemini-1.5-flash',
-        school_name: '',
-        wa_provider: 'fonnte' // Default
-    });
-    const [savingSettings, setSavingSettings] = useState(false);
 
     // Create new template state
     const [showModal, setShowModal] = useState(false);
@@ -50,63 +40,31 @@ export default function CRMAISettings({ showToast }) {
         }
     };
 
-    const fetchAppSettings = async () => {
-        try {
-            const { data, error } = await supabase.from('app_settings').select('*').single();
-            if (data) {
-                setSettings({
-                    fonnte_token: data.fonnte_token || '',
-                    gemini_api_key: data.gemini_api_key || '',
-                    gemini_model: data.gemini_model || 'gemini-1.5-flash',
-                    school_name: data.school_name || '',
-                    wa_provider: data.wa_provider || 'fonnte'
-                });
-            }
-        } catch (error) {
-            console.error("Settings fetch error:", error);
-        }
-    };
+    const [apiKey, setApiKey] = useState('');
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         fetchTemplates();
-        fetchAppSettings();
+        fetchApiKey();
     }, []);
 
-    const handleSaveSettings = async () => {
-        setSavingSettings(true);
+    const fetchApiKey = async () => {
+        const { data } = await supabase.from('app_settings').select('gemini_api_key').single();
+        if (data?.gemini_api_key) setApiKey(data.gemini_api_key);
+    };
+
+    const saveApiKey = async () => {
+        if (!apiKey) return showToast('API Key tidak boleh kosong', 'error');
+        setSaving(true);
         try {
-            // Upsert mechanism manually
-            // First check if exists
-            const { data: existing } = await supabase.from('app_settings').select('id').single();
-
-            let error;
-            const payload = {
-                fonnte_token: settings.fonnte_token,
-                gemini_api_key: settings.gemini_api_key,
-                gemini_model: settings.gemini_model,
-                school_name: settings.school_name,
-                wa_provider: settings.wa_provider,
-                updated_at: new Date()
-            };
-
-            if (existing) {
-                const { error: updateError } = await supabase
-                    .from('app_settings')
-                    .update(payload)
-                    .eq('id', existing.id);
-                error = updateError;
-            } else {
-                const { error: insertError } = await supabase.from('app_settings').insert([payload]);
-                error = insertError;
-            }
-
+            const { error } = await supabase.from('app_settings').update({ gemini_api_key: apiKey }).eq('id', 'main');
             if (error) throw error;
-            showToast('Pengaturan berhasil disimpan!', 'success');
+            showToast('API Key berhasil disimpan');
         } catch (error) {
             console.error(error);
-            showToast('Gagal menyimpan pengaturan', 'error');
+            showToast('Gagal menyimpan API Key', 'error');
         } finally {
-            setSavingSettings(false);
+            setSaving(false);
         }
     };
 
@@ -174,112 +132,49 @@ export default function CRMAISettings({ showToast }) {
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-slate-800 dark:text-slate-200">
-            {/* Left: General Settings & API Keys */}
-            <div className="space-y-6">
-                <Card className="p-6 border-l-4 border-l-indigo-500 bg-white dark:bg-slate-800">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
-                            <Key size={24} />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-slate-800 dark:text-white">API Keys Configuration</h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Hubungkan WhatsApp & AI</p>
-                        </div>
-                    </div>
+        <div className="animate-fade-in text-slate-800 dark:text-slate-200">
+            {/* API Configuration Section */}
+            <div className="mb-6 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Sparkles size={100} className="text-indigo-500" />
+                </div>
 
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500">Nama Sekolah (Konteks AI)</label>
-                            <Input
-                                value={settings.school_name}
-                                onChange={e => setSettings({ ...settings, school_name: e.target.value })}
-                                placeholder="Contoh: SMA Harapan Bangsa"
-                            />
-                        </div>
+                <h3 className="font-bold text-xl text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <Sparkles className="text-indigo-500" /> Konfigurasi AI
+                </h3>
 
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500 flex items-center gap-2">
-                                <Server size={12} /> Penyedia WhatsApp
-                            </label>
-                            <select
-                                value={settings.wa_provider || 'fonnte'}
-                                onChange={e => setSettings({ ...settings, wa_provider: e.target.value })}
-                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white dark:bg-slate-800 dark:border-slate-700 font-bold text-slate-700 dark:text-slate-200"
-                            >
-                                <option value="fonnte">Fonnte (Hosting / Cloud)</option>
-                                <option value="baileys">Baileys (Self-Hosted / Local)</option>
-                            </select>
-                        </div>
-
-                        {settings.wa_provider === 'baileys' ? (
-                            <div className="bg-slate-900 text-slate-200 p-4 rounded-lg text-xs font-mono space-y-2 border border-slate-700">
-                                <p className="font-bold text-emerald-400">🤖 Cara Menjalankan Baileys:</p>
-                                <ol className="list-decimal pl-4 space-y-1 text-slate-400">
-                                    <li>Buka Terminal di project ini</li>
-                                    <li>Jalankan: <span className="bg-slate-800 px-1 py-0.5 rounded text-white select-all border border-slate-600">node scripts/wa-server.js</span></li>
-                                    <li>Scan QR Code yang muncul di terminal</li>
-                                    <li>Biarkan terminal tetap terbuka agar WA Online</li>
-                                </ol>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase text-slate-500 flex items-center gap-2">
-                                    <MessageSquare size={12} /> Fonnte Token (WhatsApp)
-                                </label>
-                                <Input
-                                    type="password"
-                                    value={settings.fonnte_token}
-                                    onChange={e => setSettings({ ...settings, fonnte_token: e.target.value })}
-                                    placeholder="Tempel Token Fonnte disini"
-                                />
-                                <p className="text-[10px] text-slate-400">Dapatkan di fonnte.com</p>
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500 flex items-center gap-2">
-                                <Sparkles size={12} /> Google Gemini API Key
-                            </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Gemini API Key</label>
+                        <div className="flex gap-2">
                             <Input
                                 type="password"
-                                value={settings.gemini_api_key}
-                                onChange={e => setSettings({ ...settings, gemini_api_key: e.target.value })}
-                                placeholder="Tempel API Key Gemini disini"
+                                placeholder="Paste API Key Gemini disini..."
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                className="flex-1 bg-slate-50 border-slate-300 focus:border-indigo-500"
                             />
-                            <p className="text-[10px] text-slate-400">Dapatkan di aistudio.google.com</p>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500">Model AI</label>
-                            <select
-                                value={settings.gemini_model}
-                                onChange={e => setSettings({ ...settings, gemini_model: e.target.value })}
-                                className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white dark:bg-slate-800 dark:border-slate-700"
+                            <Button
+                                onClick={saveApiKey}
+                                disabled={saving}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[100px]"
                             >
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Newest)</option>
-                                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Recommended)</option>
-                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                                <option value="gemini-1.5-pro">Gemini 1.5 Pro (Best Quality)</option>
-
-                            </select>
+                                {saving ? <Loader2 className="animate-spin" /> : 'Simpan'}
+                            </Button>
                         </div>
-
-                        <Button
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-2"
-                            onClick={handleSaveSettings}
-                            disabled={savingSettings}
-                        >
-                            {savingSettings ? <Loader2 className="animate-spin mx-auto" size={18} /> : <span className="flex items-center justify-center gap-2"><Save size={16} /> Simpan Konfigurasi</span>}
-                        </Button>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Dapatkan API Key di <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-indigo-600 underline">Google AI Studio</a>.
+                        </p>
                     </div>
-                </Card>
+                </div>
             </div>
-
-            {/* Right: Templates List */}
-            <div className="lg:col-span-2 space-y-6">
-                <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-xl text-slate-800 dark:text-white">Daftar Template Respons</h3>
+            {/* Templates List */}
+            <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div>
+                        <h3 className="font-bold text-xl text-slate-800 dark:text-white">Daftar Template Respons Bot</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Kelola template jawaban otomatis untuk pertanyaan umum calon siswa.</p>
+                    </div>
                     <Button size="sm" onClick={() => setShowModal(true)} className="bg-emerald-600 text-white hover:bg-emerald-700">
                         <Plus size={16} className="mr-2" /> Tambah Template
                     </Button>
@@ -288,26 +183,32 @@ export default function CRMAISettings({ showToast }) {
                 {loading ? (
                     <div className="text-center py-10"><Loader2 className="animate-spin mx-auto text-emerald-500" /></div>
                 ) : (
-                    <div className="grid gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {templates.map(tpl => (
                             <div key={tpl.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all">
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-2">
-                                        <FileText size={18} className="text-slate-400" />
-                                        <h4 className="font-bold text-slate-800 dark:text-white">{tpl.name}</h4>
-                                        {tpl.use_ai && <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1"><Sparkles size={10} /> AI Generated</span>}
+                                        <div className={`p-2 rounded-lg ${tpl.use_ai ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                            {tpl.use_ai ? <Sparkles size={18} /> : <FileText size={18} />}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-800 dark:text-white text-sm">{tpl.name}</h4>
+                                            {tpl.use_ai && <span className="text-[10px] text-indigo-500 font-bold">AI Generated</span>}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => toggleActive(tpl.id, tpl.is_active)} className={`${tpl.is_active ? 'text-emerald-500' : 'text-slate-300'}`}>
+                                        <button onClick={() => toggleActive(tpl.id, tpl.is_active)} className={`${tpl.is_active ? 'text-emerald-500' : 'text-slate-300'}`} title={tpl.is_active ? "Nonaktifkan" : "Aktifkan"}>
                                             {tpl.is_active ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
                                         </button>
-                                        <button onClick={() => handleDelete(tpl.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>
+                                        <button onClick={() => handleDelete(tpl.id)} className="text-slate-400 hover:text-red-500" title="Hapus">
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                 </div>
 
                                 <div className="space-y-3">
                                     <div>
-                                        <span className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Trigger Keywords</span>
+                                        <span className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Kata Kunci (Trigger)</span>
                                         <div className="flex flex-wrap gap-1">
                                             {tpl.trigger_keywords && tpl.trigger_keywords.map((k, i) => (
                                                 <span key={i} className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded text-xs">{k.trim()}</span>
@@ -316,7 +217,7 @@ export default function CRMAISettings({ showToast }) {
                                     </div>
 
                                     {!tpl.use_ai && (
-                                        <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg text-xs text-slate-600 dark:text-slate-400 italic whitespace-pre-wrap">
+                                        <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg text-xs text-slate-600 dark:text-slate-400 italic whitespace-pre-wrap max-h-32 overflow-y-auto">
                                             "{tpl.response_template?.split('|||BUTTONS:')[0] || tpl.response_template}"
                                         </div>
                                     )}
@@ -324,11 +225,11 @@ export default function CRMAISettings({ showToast }) {
                                     {/* Show buttons if embedded in response_template */}
                                     {tpl.response_template?.includes('|||BUTTONS:') && (
                                         <div className="mt-2">
-                                            <span className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Tombol Interaktif</span>
+                                            <span className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Tombol Menu</span>
                                             <div className="flex flex-wrap gap-1">
                                                 {JSON.parse(tpl.response_template.split('|||BUTTONS:')[1] || '[]').map((btn, i) => (
                                                     <span key={i} className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded text-xs font-bold">
-                                                        🔘 {btn.text}
+                                                        {btn.text}
                                                     </span>
                                                 ))}
                                             </div>
@@ -341,7 +242,7 @@ export default function CRMAISettings({ showToast }) {
                 )}
             </div>
 
-            {/* Add Template Modal */}
+            {/* KEEP MODAL AS IS MOSTLY */}
             <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Tambah Template Baru">
                 <div className="space-y-4 text-slate-800 dark:text-slate-200">
                     <Input
