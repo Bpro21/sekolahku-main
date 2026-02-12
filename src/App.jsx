@@ -30,8 +30,8 @@ import UserProfile from './components/user/UserProfile';
 
 // Public Components
 import SchoolWebsite from './components/public/SchoolWebsite.jsx';
-import GuidePage from './components/public/GuidePage';
-import NotFound from './components/public/NotFound';
+import GuidePage from './components/public/GuidePage.jsx';
+import NotFound from './components/public/NotFound.jsx';
 
 // Admin Components
 import AdminDashboard from './components/admin/AdminDashboard';
