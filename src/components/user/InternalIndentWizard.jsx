@@ -139,8 +139,7 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
             const { data: dupData } = await supabase.from('registrations')
                 .select('*')
                 .eq('user_id', user.id)
-                .eq('unit_id', formData.unit_id)
-                .eq('student_name', formData.student_new.name);
+                .eq('unit_id', formData.unit_id);
 
             const isDuplicate = dupData?.some(data =>
                 data.academic_year === (selectedWave?.year || 'Unknown') &&
