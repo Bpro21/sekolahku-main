@@ -17,7 +17,6 @@ export default function AdminPaymentApproval({ showToast }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterYear, setFilterYear] = useState('');
     const [availableYears, setAvailableYears] = useState([]);
-    const [regMap, setRegMap] = useState({});
     const [installmentPlan, setInstallmentPlan] = useState([]);
     const [isEditingPlan, setIsEditingPlan] = useState(false);
 
@@ -51,20 +50,6 @@ export default function AdminPaymentApproval({ showToast }) {
                     .filter(year => year && year.includes('/'))
                     .sort((a, b) => b.localeCompare(a));
                 setAvailableYears(validYears);
-
-                const activeAy = (ays || []).find(ay => ay.is_active);
-                if (activeAy) {
-                    setFilterYear(activeAy.year);
-                } else if (validYears.length > 0) {
-                    setFilterYear(validYears[0]);
-                }
-
-                // Process Registrations Map (RegID -> AcademicYear)
-                const map = {};
-                (regs || []).forEach(d => {
-                    if (d.academic_year) map[d.id] = d.academic_year;
-                });
-                setRegMap(map);
 
             } catch (e) { console.error("Failed to fetch initial data", e); }
         };
