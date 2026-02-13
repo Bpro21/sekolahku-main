@@ -211,7 +211,7 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
                 created_at: new Date().toISOString()
             };
 
-            const { data: newReg, error: regError } = await supabase.from('registrations').insert(regData).select().single();
+            const { data: newReg, error: regError } = await supabase.from('registrations').insert(regData).select('id').single();
             if (regError) throw regError;
 
             // Update Quota (Manual update for now - race condition possible)
