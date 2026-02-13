@@ -310,6 +310,7 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                 is_indent: isIndentMode,
                 is_scholarship: isScholarship,
                 uploaded_docs: formData.documents,
+                documents: formData.documents, // Match complete_schema.sql
                 biodata: {
                     student_new: formData.student_new,
                     education: formData.education,
