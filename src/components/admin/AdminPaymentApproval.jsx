@@ -1032,16 +1032,23 @@ export default function AdminPaymentApproval({ showToast }) {
                                                             {(term.proof_of_transfer || term.status === 'verifying' || (idx === 0 && selectedInv.proof_of_transfer)) ? (
                                                                 <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm shadow-sm">
                                                                     <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Bukti Transfer (Saat Ini)</p>
-                                                                    {(selectedInv.proof_of_transfer || term.proof_of_transfer) ? (
-                                                                        <div className="relative group rounded-lg overflow-hidden cursor-pointer mb-3" onClick={() => window.open(selectedInv.proof_of_transfer || term.proof_of_transfer, '_blank')}>
+                                                                    {(selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer) ? (
+                                                                        <div className="relative group rounded-lg overflow-hidden cursor-pointer mb-3" onClick={() => window.open(selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer, '_blank')}>
                                                                             <img
-                                                                                src={selectedInv.proof_of_transfer || term.proof_of_transfer}
+                                                                                src={selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer}
                                                                                 className="w-full h-auto max-h-[200px] object-cover bg-slate-50"
                                                                                 alt={`Bukti Transfer Term ${idx + 1} `}
+                                                                                onError={(e) => {
+                                                                                    e.target.style.display = 'none';
+                                                                                    e.target.parentElement.nextSibling.style.display = 'flex';
+                                                                                }}
                                                                             />
+                                                                            <div className="hidden bg-slate-100 dark:bg-slate-800 h-24 rounded items-center justify-center text-xs text-red-500 italic p-4 text-center">
+                                                                                Format gambar tidak didukung atau link rusak. <br /> Klik "Pandangan Mata" untuk buka manual.
+                                                                            </div>
                                                                             <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-colors">
                                                                                 <Eye className="text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
-                                                                                <span className="absolute bottom-2 right-2 text-[10px] text-white bg-black/50 px-2 py-1 rounded opacity-0 group-hover:opacity-100">Zoom</span>
+                                                                                <span className="absolute bottom-2 right-2 text-[10px] text-white bg-black/50 px-2 py-1 rounded opacity-0 group-hover:opacity-100">Buka Original</span>
                                                                             </div>
                                                                         </div>
                                                                     ) : (
@@ -1085,8 +1092,33 @@ export default function AdminPaymentApproval({ showToast }) {
                             </div>
                         ) : (
                             <>
-                                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded text-center">
-                                    <img src={selectedInv.proof_of_transfer} className="max-h-[50vh] mx-auto rounded shadow-sm border dark:border-slate-700" alt="Bukti Transfer" />
+                                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded text-center min-h-[100px] flex flex-col items-center justify-center gap-3">
+                                    {(selectedInv.proof_of_transfer || selectedInv.payment_proof) ? (
+                                        <>
+                                            <img
+                                                src={selectedInv.proof_of_transfer || selectedInv.payment_proof}
+                                                className="max-h-[50vh] mx-auto rounded shadow-sm border dark:border-slate-700"
+                                                alt="Bukti Transfer"
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                    e.target.nextSibling.style.display = 'block';
+                                                }}
+                                            />
+                                            <div className="hidden p-4 bg-red-50 text-red-600 text-xs rounded border border-red-100">
+                                                Gagal menampilkan gambar. Link file kemungkinan salah atau sudah expired.
+                                            </div>
+                                            <a
+                                                href={selectedInv.proof_of_transfer || selectedInv.payment_proof}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-emerald-600 hover:underline text-xs font-bold flex items-center gap-1"
+                                            >
+                                                <Eye size={14} /> Buka Gambar di Tab Baru
+                                            </a>
+                                        </>
+                                    ) : (
+                                        <div className="text-slate-400 italic text-sm">Tidak ada bukti transfer yang diunggah.</div>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 text-sm mt-4">
                                     <div className="border dark:border-slate-700 p-2 rounded bg-white dark:bg-slate-800">

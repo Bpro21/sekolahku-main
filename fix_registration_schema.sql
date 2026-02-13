@@ -42,6 +42,10 @@ ADD COLUMN IF NOT EXISTS student_name text,
 ADD COLUMN IF NOT EXISTS amount bigint DEFAULT 0,
 ADD COLUMN IF NOT EXISTS description text,
 ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending',
+ADD COLUMN IF NOT EXISTS proof_of_transfer text,
+ADD COLUMN IF NOT EXISTS installment_schedule jsonb DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+ADD COLUMN IF NOT EXISTS bank_destination text,
 ADD COLUMN IF NOT EXISTS user_id uuid;
 
 -- 4. TABEL PENDUKUNG (PAYMENT & APP)
