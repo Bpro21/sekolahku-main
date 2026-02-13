@@ -71,24 +71,46 @@ export default function AdminPaymentApproval({ showToast }) {
         fetchInitialData();
     }, []);
 
-    // Fetch Invoices Realtime with Join
+    // Fetch Invoices with Manual Mapping for Robustness
     const fetchInvoices = async () => {
-        const { data, error } = await supabase
-            .from('invoices')
-            .select('*, registrations(academic_year, student_name, unit_name)')
-            .order('created_at', { ascending: false });
+        try {
+            // 1. Fetch Invoices
+            const { data: invs, error: invError } = await supabase
+                .from('invoices')
+                .select('*')
+                .order('created_at', { ascending: false });
 
-        if (error) console.error("Error fetching invoices:", error);
-        if (data) {
-            // Flatten the registration data for easier filtering if needed
-            const formatted = data.map(inv => ({
-                ...inv,
-                // Fallback for academic_year if not directly on invoice
-                reg_academic_year: inv.registrations?.academic_year || inv.academic_year,
-                // Fallback for student_name if missing on invoice
-                display_student_name: inv.student_name || inv.registrations?.student_name || 'Tanpa Nama'
-            }));
+            if (invError) throw invError;
+
+            // 2. Fetch Registrations for Mapping
+            const { data: regs, error: regError } = await supabase
+                .from('registrations')
+                .select('id, academic_year, student_name, unit_name');
+
+            if (regError) {
+                console.error("Reg fetch error (mapping will be limited):", regError);
+            }
+
+            const rMap = {};
+            (regs || []).forEach(r => { rMap[r.id] = r; });
+
+            // 3. Format Data
+            const formatted = (invs || []).map(inv => {
+                const relatedReg = rMap[inv.registration_id];
+                return {
+                    ...inv,
+                    // Robust mapping fallbacks
+                    reg_academic_year: inv.academic_year || relatedReg?.academic_year || 'Unknown',
+                    display_student_name: inv.student_name || relatedReg?.student_name || 'Tanpa Nama',
+                    unit_name: relatedReg?.unit_name || inv.unit_name || '',
+                    registration: relatedReg
+                };
+            });
+
             setInvoices(formatted);
+        } catch (e) {
+            console.error("Admin fetch error:", e);
+            if (showToast) showToast("Gagal memuat data", "error");
         }
     };
 
@@ -415,20 +437,19 @@ export default function AdminPaymentApproval({ showToast }) {
     };
 
     const filteredInvoices = invoices.filter(inv => {
-        // 1. Tab filtering (Pending vs History)
+        // 1. Tab filtering
         const matchesTab = activeTab === 'pending'
             ? (inv.status === 'pending' || inv.status === 'requesting_installment' || inv.status === 'installment_approved')
             : (inv.status === 'paid' || inv.status === 'rejected');
-
         if (!matchesTab) return false;
 
-        // 2. Year Filter
-        const matchesYear = filterYear
-            ? (inv.reg_academic_year === filterYear)
-            : true;
+        // 2. Year Filter (Safe fallback)
+        const matchesYear = !filterYear || filterYear === ""
+            ? true
+            : (inv.reg_academic_year === filterYear);
         if (!matchesYear) return false;
 
-        // 3. Status sub-filter (for pending tab)
+        // 3. Status sub-filter
         let matchesStatus = true;
         if (activeTab === 'pending' && statusFilter !== 'all') {
             if (statusFilter === 'unpaid') {
@@ -448,26 +469,24 @@ export default function AdminPaymentApproval({ showToast }) {
             : true;
         if (!matchesSearch) return false;
 
-        // 5. Date filter
-        let matchesDate = true;
+        // 5. Date Filter
         if (dateFrom || dateTo) {
             const invDate = inv.created_at ? new Date(inv.created_at) : null;
             if (invDate) {
                 if (dateFrom) {
                     const fromDate = new Date(dateFrom);
                     fromDate.setHours(0, 0, 0, 0);
-                    matchesDate = matchesDate && invDate >= fromDate;
+                    if (invDate < fromDate) return false;
                 }
                 if (dateTo) {
                     const toDate = new Date(dateTo);
                     toDate.setHours(23, 59, 59, 999);
-                    matchesDate = matchesDate && invDate <= toDate;
+                    if (invDate > toDate) return false;
                 }
-            } else {
-                matchesDate = false;
-            }
+            } else return false;
         }
-        return matchesDate;
+
+        return true;
     });
 
     // Pagination calculations
@@ -508,18 +527,18 @@ export default function AdminPaymentApproval({ showToast }) {
                         {(() => {
                             // Count invoices by status
                             // Count invoices by status, MATCHING current filters (Year, Search, Date)
+                            // Count invoices by status, MATCHING current global filters (Year, Search, Date)
                             const baseFiltered = invoices.filter(inv => {
-                                const mYear = filterYear ? (inv.reg_academic_year === filterYear) : true;
+                                const mYear = (!filterYear || filterYear === "") ? true : (inv.reg_academic_year === filterYear);
                                 const mSearch = searchTerm ? (inv.display_student_name?.toLowerCase().includes(searchTerm.toLowerCase())) : true;
-                                let mDate = true;
                                 if (dateFrom || dateTo) {
                                     const d = inv.created_at ? new Date(inv.created_at) : null;
                                     if (d) {
-                                        if (dateFrom) { const f = new Date(dateFrom); f.setHours(0, 0, 0, 0); mDate = mDate && d >= f; }
-                                        if (dateTo) { const t = new Date(dateTo); t.setHours(23, 59, 59, 999); mDate = mDate && d <= t; }
-                                    } else mDate = false;
+                                        if (dateFrom) { const f = new Date(dateFrom); f.setHours(0, 0, 0, 0); if (d < f) return false; }
+                                        if (dateTo) { const t = new Date(dateTo); t.setHours(23, 59, 59, 999); if (d > t) return false; }
+                                    } else return false;
                                 }
-                                return mYear && mSearch && mDate;
+                                return mYear && mSearch;
                             });
 
                             const pendingInvoices = baseFiltered.filter(inv =>
@@ -730,7 +749,7 @@ export default function AdminPaymentApproval({ showToast }) {
                                     <p className="text-sm text-slate-500 dark:text-slate-400">{inv.description}</p>
                                     <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
                                         {inv.display_student_name}
-                                        {inv.registrations?.unit_name && <span className="text-slate-400 ml-2 font-normal">({inv.registrations.unit_name})</span>}
+                                        {inv.unit_name && <span className="text-slate-400 ml-2 font-normal">({inv.unit_name})</span>}
                                     </div>
 
                                     {/* Status Badges for Pending Tab */}
