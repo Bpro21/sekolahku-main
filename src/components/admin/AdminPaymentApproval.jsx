@@ -226,10 +226,14 @@ export default function AdminPaymentApproval({ showToast }) {
                 await supabase.from('registrations').update({ status: newStatus }).eq('id', selectedInv.registration_id);
             }
 
+            const isRegPayment = selectedInv.description?.toLowerCase().includes('pendaftaran') || selectedInv.description?.toLowerCase().includes('registration');
+
             await supabase.from('notifications').insert({
                 user_id: selectedInv.user_id,
                 title: 'Pembayaran Diterima',
-                message: `Pembayaran tagihan ${selectedInv.description} sebesar Rp ${selectedInv.amount.toLocaleString()} telah disetujui. Invoice #${formattedId}`,
+                message: isRegPayment
+                    ? `Pembayaran tagihan ${selectedInv.description} telah disetujui. Silakan akses menu 'Ujian (CBT)' untuk mengikuti tes seleksi. Invoice #${formattedId}`
+                    : `Pembayaran tagihan ${selectedInv.description} sebesar Rp ${selectedInv.amount.toLocaleString()} telah disetujui. Invoice #${formattedId}`,
                 type: 'success',
                 created_at: new Date().toISOString()
             });
@@ -314,11 +318,16 @@ export default function AdminPaymentApproval({ showToast }) {
                 const { error } = await supabase.from('invoices').update(updates).eq('id', selectedInv.id);
                 if (error) throw error;
 
+                // Revert registration status if it was for registration fee
+                if (selectedInv.registration_id && (selectedInv.description?.toLowerCase().includes('pendaftaran') || selectedInv.description?.toLowerCase().includes('registration'))) {
+                    await supabase.from('registrations').update({ status: 'submitted' }).eq('id', selectedInv.registration_id);
+                }
+
                 // Notify User
                 await supabase.from('notifications').insert({
                     user_id: selectedInv.user_id,
                     title: 'Bukti Pembayaran Ditolak',
-                    message: `Bukti transfer untuk tagihan ${selectedInv.description} ditolak karena buram atau tidak sesuai.Silakan upload kembali.`,
+                    message: `Bukti transfer untuk tagihan ${selectedInv.description} ditolak karena buram atau tidak sesuai. Silakan upload kembali bukti yang baru.`,
                     type: 'error',
                     created_at: new Date().toISOString()
                 });

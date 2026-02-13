@@ -679,7 +679,12 @@ export default function PaymentHistory({ user, showToast }) {
                                         <Printer size={14} className="mr-1" /> Cetak Invoice
                                     </Button>
                                 )}
-                                {inv.status === 'verifying_payment' && <span className="text-xs text-slate-400 italic">Menunggu verifikasi admin</span>}
+                                {inv.status === 'verifying_payment' && (
+                                    <div className="flex flex-col items-end gap-1">
+                                        <Badge status="processing">Menunggu Verifikasi</Badge>
+                                        <span className="text-[10px] text-slate-400 italic">Admin akan segera mengecek bukti bayar Anda</span>
+                                    </div>
+                                )}
                             </div>
                         </Card>
                     ))
