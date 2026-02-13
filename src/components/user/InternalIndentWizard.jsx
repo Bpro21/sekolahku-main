@@ -223,10 +223,11 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
                 await supabase.from('units').update({ filled: (latestUnit.filled || 0) + 1 }).eq('id', selectedBranch.id);
             }
 
-            // Create Invoice for Indent Fee
+            // Create Invoice for Indent Fee (Deterministic ID)
             if (!isScholarship) {
                 const unitFee = selectedBranch?.cost_reg !== undefined ? selectedBranch.cost_reg : 0;
                 await supabase.from('invoices').insert({
+                    id: `reg_fee_${newReg.id}`, // Deterministic ID
                     user_id: user.id,
                     registration_id: newReg.id,
                     student_name: formData.student_new.name,

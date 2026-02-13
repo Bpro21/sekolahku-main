@@ -142,6 +142,40 @@ export default function PaymentHistory({ user, showToast }) {
                 const isScholarship = reg.is_scholarship || (reg.path_name && (reg.path_name.toLowerCase().includes('prestasi') || reg.path_name.toLowerCase().includes('yatim')));
                 const isIndenInternal = reg.is_indent || reg.is_internal || (reg.path_name && (reg.path_name.toLowerCase().includes('internal') || reg.path_name.toLowerCase().includes('indent')));
 
+                // 1. AUTO-GENERATE MISSING REGISTRATION/INDENT FEE (For existing users stuck)
+                if (reg.status === 'submitted' && !isScholarship) {
+                    const regFeeId = `reg_fee_${reg.id}`;
+                    // Client-side quick check
+                    const hasRegFee = invoices.find(inv => inv.id === regFeeId || (inv.registration_id === reg.id && inv.description?.toLowerCase().includes('pendaftaran')));
+
+                    if (!hasRegFee) {
+                        try {
+                            const { data: units } = await supabase.from('units').select('name, cost_reg').eq('id', reg.unit_id).maybeSingle();
+                            const amount = units?.cost_reg || 0;
+                            const desc = isIndenInternal ? `Biaya Pendaftaran Inden Internal - ${units?.name || 'Sekolah'}` : `Biaya Pendaftaran - ${units?.name || 'Sekolah'}`;
+
+                            // Serverside check to be safe
+                            const { data: remoteExists } = await supabase.from('invoices').select('id').eq('id', regFeeId).maybeSingle();
+
+                            if (!remoteExists) {
+                                await supabase.from('invoices').insert({
+                                    id: regFeeId,
+                                    user_id: user.id,
+                                    registration_id: reg.id,
+                                    student_name: reg.student_name,
+                                    amount: amount,
+                                    description: desc,
+                                    status: 'pending',
+                                    created_at: new Date(reg.created_at || Date.now()).toISOString(),
+                                    due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+                                });
+                                showToast('Tagihan Pendaftaran baru saja diaktifkan.', 'success');
+                            }
+                        } catch (err) { console.error("Auto Reg Fee error", err); }
+                    }
+                }
+
+                // 2. AUTO-GENERATE RE-REGISTRATION FEE (Daftar Ulang)
                 if ((reg.status === 'lulus' || reg.status === 'accepted') && reg.agreements_verified === true && !isScholarship) {
                     const deterministicId = `rereg_${reg.id}`;
                     const exists = invoices.find(inv => inv.id === deterministicId || (inv.registration_id === reg.id && inv.description?.toLowerCase().includes('daftar ulang')));
@@ -153,7 +187,7 @@ export default function PaymentHistory({ user, showToast }) {
                                 .from('invoices')
                                 .select('id')
                                 .eq('id', deterministicId)
-                                .single();
+                                .maybeSingle();
                             if (existingInv) continue;
 
                             let amount = 0;
@@ -163,7 +197,7 @@ export default function PaymentHistory({ user, showToast }) {
                                     .from('units')
                                     .select('cost_rereg')
                                     .eq('id', reg.unit_id)
-                                    .single();
+                                    .maybeSingle();
                                 if (unitData?.cost_rereg) {
                                     amount = parseInt(unitData.cost_rereg);
                                 }

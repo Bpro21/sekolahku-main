@@ -340,6 +340,7 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                 }
 
                 await supabase.from('invoices').insert({
+                    id: `reg_fee_${regRef.id}`, // Deterministic ID
                     user_id: user.id,
                     registration_id: regRef.id,
                     student_name: formData.student_new.name,
