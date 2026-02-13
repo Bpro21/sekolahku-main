@@ -206,7 +206,6 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
                 is_indent: true,
                 is_internal: true,
                 uploaded_docs: formData.documents,
-                cost_rereg: selectedBranch?.cost_rereg !== undefined ? selectedBranch.cost_rereg : 0,
                 is_scholarship: isScholarship,
                 biodata: studentData, // Store complete form data
                 created_at: new Date().toISOString()
