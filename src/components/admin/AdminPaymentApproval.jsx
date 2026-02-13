@@ -446,7 +446,7 @@ export default function AdminPaymentApproval({ showToast }) {
     const filteredInvoices = invoices.filter(inv => {
         // 1. Tab filtering
         const matchesTab = activeTab === 'pending'
-            ? (inv.status === 'pending' || inv.status === 'requesting_installment' || inv.status === 'installment_approved')
+            ? (inv.status === 'pending' || inv.status === 'verifying_payment' || inv.status === 'requesting_installment' || inv.status === 'installment_approved')
             : (inv.status === 'paid' || inv.status === 'rejected');
         if (!matchesTab) return false;
 
@@ -463,6 +463,7 @@ export default function AdminPaymentApproval({ showToast }) {
                 matchesStatus = inv.status === 'pending' && !inv.proof_of_transfer;
             } else if (statusFilter === 'processing') {
                 matchesStatus = (inv.status === 'pending' && inv.proof_of_transfer) ||
+                    inv.status === 'verifying_payment' ||
                     inv.status === 'requesting_installment' ||
                     inv.status === 'installment_approved';
             }
@@ -549,13 +550,14 @@ export default function AdminPaymentApproval({ showToast }) {
                             });
 
                             const pendingInvoices = baseFiltered.filter(inv =>
-                                inv.status === 'pending' || inv.status === 'requesting_installment' || inv.status === 'installment_approved'
+                                inv.status === 'pending' || inv.status === 'verifying_payment' || inv.status === 'requesting_installment' || inv.status === 'installment_approved'
                             );
                             const unpaidCount = pendingInvoices.filter(inv =>
                                 inv.status === 'pending' && !inv.proof_of_transfer
                             ).length;
                             const processingCount = pendingInvoices.filter(inv =>
                                 (inv.status === 'pending' && inv.proof_of_transfer) ||
+                                inv.status === 'verifying_payment' ||
                                 inv.status === 'requesting_installment' ||
                                 inv.status === 'installment_approved'
                             ).length;
