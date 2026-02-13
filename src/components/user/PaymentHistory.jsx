@@ -363,10 +363,16 @@ export default function PaymentHistory({ user, showToast }) {
                 newSchedule[activeTermPay.index] = {
                     ...newSchedule[activeTermPay.index],
                     status: 'verifying',
-                    proof_of_transfer: uploadProof,
                     paid_at: new Date().toISOString(),
                     bank_destination: selectedBank || 'Manual'
                 };
+
+                // Self-Healing Term Mapping
+                if ('proof_of_transfer' in newSchedule[activeTermPay.index] || !('payment_proof' in newSchedule[activeTermPay.index])) {
+                    newSchedule[activeTermPay.index].proof_of_transfer = uploadProof;
+                } else {
+                    newSchedule[activeTermPay.index].payment_proof = uploadProof;
+                }
 
                 await supabase.from('invoices').update({ installment_schedule: newSchedule }).eq('id', activeInvoice.id);
 
@@ -379,10 +385,16 @@ export default function PaymentHistory({ user, showToast }) {
             // Normal Full Payment
             const updates = {
                 status: 'verifying_payment',
-                proof_of_transfer: uploadProof,
                 paid_at: new Date().toISOString(),
                 bank_destination: selectedBank || 'Manual'
             };
+
+            // Self-Healing Column Detection
+            if ('proof_of_transfer' in activeInvoice || !('payment_proof' in activeInvoice)) {
+                updates.proof_of_transfer = uploadProof;
+            } else {
+                updates.payment_proof = uploadProof;
+            }
 
             // If voucher applied, include it in updates and increment usage
             if (appliedVoucher) {

@@ -280,7 +280,12 @@ export default function AdminPaymentApproval({ showToast }) {
 
                 showToast("Pengajuan cicilan ditolak.");
             } else {
-                let updates = { status: 'pending', proof_of_transfer: null };
+                let updates = { status: 'pending' };
+
+                // Self-Healing: check which image column exists
+                if ('proof_of_transfer' in selectedInv) updates.proof_of_transfer = null;
+                else if ('payment_proof' in selectedInv) updates.payment_proof = null;
+                else updates.proof_of_transfer = null; // Default to new
 
                 // If invoice used a voucher (stored in discount_info), reset amount to original price
                 if (selectedInv.discount_info) {
@@ -396,9 +401,17 @@ export default function AdminPaymentApproval({ showToast }) {
             newSchedule[termIndex] = {
                 ...newSchedule[termIndex],
                 status: 'unpaid',
-                proof_of_transfer: null,
                 paid_at: null
             };
+
+            // Remove image from whichever column it exists in
+            if ('proof_of_transfer' in newSchedule[termIndex]) {
+                newSchedule[termIndex].proof_of_transfer = null;
+            } else if ('payment_proof' in newSchedule[termIndex]) {
+                newSchedule[termIndex].payment_proof = null;
+            } else {
+                newSchedule[termIndex].proof_of_transfer = null;
+            }
 
             const updates = {
                 installment_schedule: newSchedule

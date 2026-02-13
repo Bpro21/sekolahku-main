@@ -37,6 +37,15 @@ ADD COLUMN IF NOT EXISTS uploaded_docs jsonb DEFAULT '{}'::jsonb,
 ADD COLUMN IF NOT EXISTS biodata jsonb DEFAULT '{}'::jsonb;
 
 -- 3. LENGKAPI TABEL INVOICES
+-- A. Rename Kolom Lama jika ada
+DO $$ 
+BEGIN 
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invoices' AND column_name='payment_proof') THEN
+    ALTER TABLE public.invoices RENAME COLUMN payment_proof TO proof_of_transfer;
+  END IF;
+END $$;
+
+-- B. Tambahkan Kolom Baru
 ALTER TABLE public.invoices 
 ADD COLUMN IF NOT EXISTS student_name text,
 ADD COLUMN IF NOT EXISTS amount bigint DEFAULT 0,
