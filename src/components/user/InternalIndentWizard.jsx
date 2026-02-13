@@ -223,7 +223,19 @@ export default function InternalIndentWizard({ user, onComplete, showToast, inde
                 await supabase.from('units').update({ filled: (latestUnit.filled || 0) + 1 }).eq('id', selectedBranch.id);
             }
 
-            // Invoice creation handled by admin verification mainly, or triggered separately.
+            // Create Invoice for Indent Fee
+            if (!isScholarship) {
+                const unitFee = selectedBranch?.cost_reg !== undefined ? selectedBranch.cost_reg : 0;
+                await supabase.from('invoices').insert({
+                    user_id: user.id,
+                    registration_id: newReg.id,
+                    student_name: formData.student_new.name,
+                    amount: unitFee,
+                    description: `Biaya Pendaftaran Inden Internal - ${selectedBranch?.name || 'Sekolah'}`,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
+            }
 
             onComplete(); showToast('Pendaftaran Inden Internal Berhasil Disimpan!', 'success');
         } catch (err) { console.error(err); showToast(err.message, 'error'); } finally { setLoading(false); }

@@ -95,17 +95,17 @@ export default function PaymentHistory({ user, showToast }) {
                 .from('payment_config')
                 .select('*')
                 .eq('id', 'main')
-                .single();
+                .maybeSingle(); // Better for missing data
             if (data) setPayConfig(data);
         };
 
         // Fetch settings
         const fetchSettings = async () => {
             const { data } = await supabase
-                .from('settings')
+                .from('app_settings') // Fixed table name
                 .select('*')
                 .eq('id', 'main')
-                .single();
+                .maybeSingle();
             if (data) setSettings(data);
         };
 
