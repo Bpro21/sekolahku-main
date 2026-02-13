@@ -71,10 +71,25 @@ export default function AdminPaymentApproval({ showToast }) {
         fetchInitialData();
     }, []);
 
-    // Fetch Invoices Realtime
+    // Fetch Invoices Realtime with Join
     const fetchInvoices = async () => {
-        const { data } = await supabase.from('invoices').select('*').order('created_at', { ascending: false });
-        if (data) setInvoices(data);
+        const { data, error } = await supabase
+            .from('invoices')
+            .select('*, registrations(academic_year, student_name, unit_name)')
+            .order('created_at', { ascending: false });
+
+        if (error) console.error("Error fetching invoices:", error);
+        if (data) {
+            // Flatten the registration data for easier filtering if needed
+            const formatted = data.map(inv => ({
+                ...inv,
+                // Fallback for academic_year if not directly on invoice
+                reg_academic_year: inv.registrations?.academic_year || inv.academic_year,
+                // Fallback for student_name if missing on invoice
+                display_student_name: inv.student_name || inv.registrations?.student_name || 'Tanpa Nama'
+            }));
+            setInvoices(formatted);
+        }
     };
 
     useEffect(() => {
@@ -400,38 +415,43 @@ export default function AdminPaymentApproval({ showToast }) {
     };
 
     const filteredInvoices = invoices.filter(inv => {
-        // Tab filtering
+        // 1. Tab filtering (Pending vs History)
         const matchesTab = activeTab === 'pending'
             ? (inv.status === 'pending' || inv.status === 'requesting_installment' || inv.status === 'installment_approved')
             : (inv.status === 'paid' || inv.status === 'rejected');
 
-        // Status sub-filter for pending tab
+        if (!matchesTab) return false;
+
+        // 2. Year Filter
+        const matchesYear = filterYear
+            ? (inv.reg_academic_year === filterYear)
+            : true;
+        if (!matchesYear) return false;
+
+        // 3. Status sub-filter (for pending tab)
         let matchesStatus = true;
         if (activeTab === 'pending' && statusFilter !== 'all') {
             if (statusFilter === 'unpaid') {
-                // Belum bayar: pending tanpa bukti transfer
                 matchesStatus = inv.status === 'pending' && !inv.proof_of_transfer;
             } else if (statusFilter === 'processing') {
-                // Proses: sudah upload bukti, menunggu verifikasi
                 matchesStatus = (inv.status === 'pending' && inv.proof_of_transfer) ||
                     inv.status === 'requesting_installment' ||
                     inv.status === 'installment_approved';
             }
         }
+        if (!matchesStatus) return false;
 
+        // 4. Search Filter
         const matchesSearch = searchTerm
-            ? (inv.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) || inv.invoice_number_formatted?.toLowerCase().includes(searchTerm.toLowerCase()))
+            ? (inv.display_student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                inv.invoice_number_formatted?.toLowerCase().includes(searchTerm.toLowerCase()))
             : true;
+        if (!matchesSearch) return false;
 
-        const matchesYear = filterYear
-            ? (regMap[inv.registration_id] === filterYear)
-            : true;
-
-        // Date filter
+        // 5. Date filter
         let matchesDate = true;
         if (dateFrom || dateTo) {
             const invDate = inv.created_at ? new Date(inv.created_at) : null;
-
             if (invDate) {
                 if (dateFrom) {
                     const fromDate = new Date(dateFrom);
@@ -447,8 +467,7 @@ export default function AdminPaymentApproval({ showToast }) {
                 matchesDate = false;
             }
         }
-
-        return matchesTab && matchesStatus && matchesSearch && matchesYear && matchesDate;
+        return matchesDate;
     });
 
     // Pagination calculations
@@ -488,7 +507,22 @@ export default function AdminPaymentApproval({ showToast }) {
                     <div className="flex flex-wrap gap-2">
                         {(() => {
                             // Count invoices by status
-                            const pendingInvoices = invoices.filter(inv =>
+                            // Count invoices by status, MATCHING current filters (Year, Search, Date)
+                            const baseFiltered = invoices.filter(inv => {
+                                const mYear = filterYear ? (inv.reg_academic_year === filterYear) : true;
+                                const mSearch = searchTerm ? (inv.display_student_name?.toLowerCase().includes(searchTerm.toLowerCase())) : true;
+                                let mDate = true;
+                                if (dateFrom || dateTo) {
+                                    const d = inv.created_at ? new Date(inv.created_at) : null;
+                                    if (d) {
+                                        if (dateFrom) { const f = new Date(dateFrom); f.setHours(0, 0, 0, 0); mDate = mDate && d >= f; }
+                                        if (dateTo) { const t = new Date(dateTo); t.setHours(23, 59, 59, 999); mDate = mDate && d <= t; }
+                                    } else mDate = false;
+                                }
+                                return mYear && mSearch && mDate;
+                            });
+
+                            const pendingInvoices = baseFiltered.filter(inv =>
                                 inv.status === 'pending' || inv.status === 'requesting_installment' || inv.status === 'installment_approved'
                             );
                             const unpaidCount = pendingInvoices.filter(inv =>
@@ -694,7 +728,10 @@ export default function AdminPaymentApproval({ showToast }) {
                                 <div>
                                     <h4 className="font-bold text-lg text-slate-800 dark:text-white">Rp {inv.amount.toLocaleString()}</h4>
                                     <p className="text-sm text-slate-500 dark:text-slate-400">{inv.description}</p>
-                                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">{inv.student_name}</div>
+                                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                        {inv.display_student_name}
+                                        {inv.registrations?.unit_name && <span className="text-slate-400 ml-2 font-normal">({inv.registrations.unit_name})</span>}
+                                    </div>
 
                                     {/* Status Badges for Pending Tab */}
                                     {activeTab === 'pending' && inv.status === 'pending' && !inv.proof_of_transfer && (
