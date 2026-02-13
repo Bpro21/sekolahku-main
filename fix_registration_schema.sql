@@ -1,40 +1,40 @@
 -- ================================================================
--- FIX SCHEMA PENDAFTARAN (REGISTRATIONS)
+-- FIX SCHEMA PENDAFTARAN (REGISTRATIONS) - VERSI LENGKAP
 -- Jalankan di Supabase Dashboard -> SQL Editor
 -- ================================================================
 
--- 1. Tambahkan kolom yang sering hilang atau menyebabkan error 400
+-- 1. Tambahkan SEMUA kolom yang dibutuhkan aplikasi PSB Online
 ALTER TABLE public.registrations 
+ADD COLUMN IF NOT EXISTS student_name text,
+ADD COLUMN IF NOT EXISTS parent_name text,
+ADD COLUMN IF NOT EXISTS student_religion text,
 ADD COLUMN IF NOT EXISTS category text,
 ADD COLUMN IF NOT EXISTS cost_reg integer DEFAULT 0,
 ADD COLUMN IF NOT EXISTS cost_rereg integer DEFAULT 0,
-ADD COLUMN IF NOT EXISTS parent_name text,
-ADD COLUMN IF NOT EXISTS student_religion text,
 ADD COLUMN IF NOT EXISTS unit_id text,
+ADD COLUMN IF NOT EXISTS unit_name text,
 ADD COLUMN IF NOT EXISTS unit_level text,
+ADD COLUMN IF NOT EXISTS major text,
 ADD COLUMN IF NOT EXISTS path_id text,
 ADD COLUMN IF NOT EXISTS path_name text,
 ADD COLUMN IF NOT EXISTS wave_id text,
+ADD COLUMN IF NOT EXISTS wave_name text,
+ADD COLUMN IF NOT EXISTS academic_year text,
+ADD COLUMN IF NOT EXISTS is_indent boolean DEFAULT false,
 ADD COLUMN IF NOT EXISTS is_scholarship boolean DEFAULT false,
+ADD COLUMN IF NOT EXISTS uploaded_docs jsonb DEFAULT '{}'::jsonb,
 ADD COLUMN IF NOT EXISTS biodata jsonb DEFAULT '{}'::jsonb;
 
--- 2. Pastikan kolom uploaded_docs ada (sebagai alias atau target utama)
--- Jika tabel menggunakan nama 'documents', kita pastikan 'uploaded_docs' juga ada
-ALTER TABLE public.registrations 
-ADD COLUMN IF NOT EXISTS uploaded_docs jsonb DEFAULT '{}'::jsonb;
+-- 2. Pastikan kolom id menggunakan UUID default jika belum ada
+-- ALTER TABLE public.registrations ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
--- 3. Tambahkan kolom status jika belum ada dengan default yang benar
-ALTER TABLE public.registrations 
-ALTER COLUMN status SET DEFAULT 'submitted';
-
--- 4. Refresh Cache Schema PostgREST
+-- 3. Refresh Cache Schema PostgREST (Sangat Penting!)
 NOTIFY pgrst, 'reload schema';
 
--- 5. Verifikasi kolom
+-- 4. Verifikasi Akhir
 SELECT column_name, data_type 
 FROM information_schema.columns 
 WHERE table_name = 'registrations' 
 AND column_name IN (
-    'category', 'cost_reg', 'cost_rereg', 'parent_name', 
-    'student_religion', 'unit_id', 'path_id', 'is_scholarship', 'biodata', 'uploaded_docs'
+    'student_name', 'parent_name', 'unit_name', 'path_name', 'academic_year', 'biodata'
 );

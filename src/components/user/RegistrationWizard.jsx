@@ -319,7 +319,7 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                     guardian: formData.guardian
                 },
                 parent_name: user.user_metadata?.displayName || user.user_metadata?.full_name || user.email, // fallback
-            }).select().single();
+            }).select('id').single();
 
             if (regError) throw regError;
 
