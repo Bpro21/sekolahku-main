@@ -310,7 +310,6 @@ export default function RegistrationWizard({ user, onComplete, showToast, initia
                 is_indent: isIndentMode,
                 is_scholarship: isScholarship,
                 uploaded_docs: formData.documents,
-                cost_reg: isScholarship ? 0 : (selectedBranch?.cost_reg || 0),
                 cost_rereg: isScholarship ? 0 : (selectedBranch?.cost_rereg || 0),
                 biodata: {
                     student_new: formData.student_new,
