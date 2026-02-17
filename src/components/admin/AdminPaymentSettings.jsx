@@ -11,6 +11,7 @@ export default function AdminPaymentSettings({ showToast }) {
         registration_fee: 0, reregistration_fee: 0,
         gateway_active: 'manual',
         midtrans_client_key: '', midtrans_server_key: '', midtrans_merchant_id: '',
+        midtrans_mode: 'sandbox', // sandbox or production
         manual_banks: []
     });
     const [editingBank, setEditingBank] = useState(null);
@@ -74,10 +75,29 @@ export default function AdminPaymentSettings({ showToast }) {
                         <input type="radio" name="pg" checked={payConfig.gateway_active === 'midtrans'} onChange={() => setPayConfig({ ...payConfig, gateway_active: 'midtrans' })} className="w-5 h-5 cursor-pointer" />
                     </div>
                     <div className="space-y-3">
+                        <div className="mb-4">
+                            <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-2">Mode Midtrans</label>
+                            <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setPayConfig({ ...payConfig, midtrans_mode: 'sandbox' })}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${payConfig.midtrans_mode === 'sandbox' ? 'bg-white dark:bg-slate-600 text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Sandbox (Testing)
+                                </button>
+                                <button
+                                    onClick={() => setPayConfig({ ...payConfig, midtrans_mode: 'production' })}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${payConfig.midtrans_mode === 'production' ? 'bg-white dark:bg-emerald-600 text-red-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Production (Live)
+                                </button>
+                            </div>
+                        </div>
                         <Input label="Merchant ID" value={payConfig.midtrans_merchant_id || ''} onChange={e => setPayConfig({ ...payConfig, midtrans_merchant_id: e.target.value })} />
                         <Input label="Client Key" value={payConfig.midtrans_client_key || ''} onChange={e => setPayConfig({ ...payConfig, midtrans_client_key: e.target.value })} />
                         <Input label="Server Key" type="password" value={payConfig.midtrans_server_key || ''} onChange={e => setPayConfig({ ...payConfig, midtrans_server_key: e.target.value })} />
-                        <p className="text-xs text-slate-500">Mendukung VA, QRIS, E-Wallet otomatis.</p>
+                        <p className="text-xs text-slate-500">
+                            {payConfig.midtrans_mode === 'sandbox' ? '🛡️ Menggunakan simulator internal (tidak mengirim tagihan asli).' : '🚀 Menggunakan Midtrans Snap API (pastikan API Key Production benar).'}
+                        </p>
                         {payConfig.gateway_active === 'midtrans' && <Button onClick={handleSaveConfig} className="w-full">Simpan Konfigurasi</Button>}
                     </div>
                 </Card>

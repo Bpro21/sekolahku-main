@@ -366,46 +366,45 @@ fbq('track', 'PageView');`;
     // SUPABASE AUTH LISTENER
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const u = session?.user || null;
-      if (u) {
 
-        // Fast timeout (2s) - race against cache or timeout
+      if (u) {
+        // 1. Fetch settings and perms first
         const settingsPromise = fetchSettings();
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 3000));
 
         const admins = await Promise.race([settingsPromise, timeoutPromise]);
 
-        if (!admins) {
-          // Timeout - proceed with defaults
-        }
-
+        // 2. Determine admin status early
         let isUserAdmin = false;
         let perms = [];
 
         if (admins && admins.length > 0) {
-          const adminData = admins.find(a => a.email === u.email);
+          const adminData = admins.find(a => a.email?.toLowerCase() === u.email?.toLowerCase());
           if (adminData) {
             isUserAdmin = true;
             if (adminData.permissions) perms = adminData.permissions;
-          } else if (u.email && u.email.toLowerCase().includes('admin')) {
-            isUserAdmin = true;
           }
-        } else if (u.email && u.email.includes('admin')) {
+        }
+
+        // Hard fallback for emails containing "admin"
+        if (!isUserAdmin && u.email?.toLowerCase().includes('admin')) {
           isUserAdmin = true;
         }
 
-
-        setUser(u);
+        // 3. Update all states in a single batch (React 18 will batch these)
         setIsAdmin(isUserAdmin);
         setAdminPermissions(perms);
+        setUser(u);
         setLoading(false);
 
-        // Redirect logic
-        if (location.pathname === '/login') {
+        // 4. Handle redirects
+        if (location.pathname === '/login' || location.pathname === '/') {
           navigate(isUserAdmin ? '/admin' : '/dashboard');
         }
       } else {
         setUser(null);
         setIsAdmin(false);
+        setAdminPermissions([]);
         setLoading(false);
       }
     });

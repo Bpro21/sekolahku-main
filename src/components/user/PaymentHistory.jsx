@@ -637,8 +637,33 @@ export default function PaymentHistory({ user, showToast }) {
                 </div>
             )}
 
-            {/* Midtrans Mock Modal */}
-            <MidtransMock isOpen={!!activeInvoice && payConfig.gateway_active === 'midtrans'} onClose={() => setActiveInvoice(null)} invoice={activeInvoice} onSuccess={onPaymentSuccess} />
+            {/* Midtrans Flow */}
+            {activeInvoice && payConfig.gateway_active === 'midtrans' && payConfig.midtrans_mode === 'production' && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <Card className="p-8 text-center max-w-sm">
+                        <CreditCard size={48} className="mx-auto text-emerald-500 mb-4" />
+                        <h3 className="font-bold text-lg mb-2">Menghubungkan ke Midtrans...</h3>
+                        <p className="text-sm text-slate-500 mb-6">
+                            Sistem sedang menyiapkan gerbang pembayaran aman. Pastikan koneksi internet Anda stabil.
+                        </p>
+                        <div className="flex gap-2">
+                            <Button className="flex-1" onClick={() => {
+                                // Placeholder for real Snap Token call
+                                alert("Fitur Production memerlukan integrasi Snap Token dari backend (Supabase Edge Func atau WA-Server). Saat ini dialihkan ke Manual Simulator.");
+                                setPayConfig(prev => ({ ...prev, midtrans_mode: 'sandbox' }));
+                            }}>Lanjutkan (Simulasi)</Button>
+                            <Button variant="secondary" onClick={() => setActiveInvoice(null)}>Batal</Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
+            <MidtransMock
+                isOpen={!!activeInvoice && payConfig.gateway_active === 'midtrans' && payConfig.midtrans_mode !== 'production'}
+                onClose={() => setActiveInvoice(null)}
+                invoice={activeInvoice}
+                onSuccess={onPaymentSuccess}
+            />
 
             <div className="space-y-4">
                 {invoices.length === 0 ? (
