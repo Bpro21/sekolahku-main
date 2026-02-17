@@ -6,13 +6,18 @@ import {
 import { Button, Card, Badge } from '../ui/Elements';
 import { Modal } from '../ui/Overlays';
 import { fileToBase64 } from '../../utils/helpers';
+import { MidtransService } from '../../services/MidtransService';
 import { MidtransMock } from './MidtransMock';
 
 export default function PaymentHistory({ user, showToast }) {
     const [invoices, setInvoices] = useState([]);
     const [registrations, setRegistrations] = useState([]);
     const [activeInvoice, setActiveInvoice] = useState(null); // For Payment Gateway
-    const [payConfig, setPayConfig] = useState({ gateway_active: 'manual', manual_banks: [] });
+    const [payConfig, setPayConfig] = useState({
+        gateway_active: 'manual',
+        midtrans_mode: 'sandbox',
+        manual_banks: []
+    });
     const [uploadProof, setUploadProof] = useState(null);
     const [selectedBank, setSelectedBank] = useState(null);
     const [isInstallment, setIsInstallment] = useState(false);
@@ -237,12 +242,17 @@ export default function PaymentHistory({ user, showToast }) {
     }, [registrations, invoices, settings, user]);
 
     const handlePay = async (inv) => {
+        if (!inv) return;
+        console.log("Initiating payment for invoice:", inv.id);
+
         // Validation for Daftar Ulang (Must upload Agreement & MCU)
-        if (inv.description?.toLowerCase().includes('daftar ulang') || inv.description?.toLowerCase().includes('re-registration')) {
+        const isDaftarUlang = inv.description?.toLowerCase().includes('daftar ulang') || inv.description?.toLowerCase().includes('re-registration');
+
+        if (isDaftarUlang) {
             try {
                 const { data: regData } = await supabase
                     .from('registrations')
-                    .select('uploaded_docs')
+                    .select('uploaded_docs, id')
                     .eq('id', inv.registration_id)
                     .single();
 
@@ -254,17 +264,52 @@ export default function PaymentHistory({ user, showToast }) {
                     const hasMCU = docs.mcu_letter;
 
                     if (!hasRokok || !hasLGBT || !hasKriminal || !hasMCU) {
-                        showToast('Harap upload 3 Surat Pernyataan & Surat Sehat MCU di menu Data Anak terlebih dahulu!', 'error');
+                        showToast('Harap lengkapi 3 Surat Pernyataan & Surat Sehat (MCU) di menu Data Anak!', 'error');
                         return;
                     }
                 }
             } catch (e) {
-                console.error("Error checking docs", e);
+                console.error("Payment Doc Check Error:", e);
+                // Continue anyway if query fails to avoid blocking user completely? 
+                // No, better to be safe but let's not crash.
             }
         }
 
+        // Set Active Invoice to trigger the modal
         if (payConfig.gateway_active === 'midtrans') {
-            setActiveInvoice(inv);
+            try {
+                showToast('Menyiapkan gerbang pembayaran...', 'info');
+                const token = await MidtransService.getSnapToken(inv);
+
+                if (window.snap) {
+                    window.snap.pay(token, {
+                        onSuccess: (result) => {
+                            console.log('payment success!', result);
+                            onPaymentSuccess(inv); // Use existing success handler
+                        },
+                        onPending: (result) => {
+                            console.log('payment pending!', result);
+                            showToast('Pembayaran tertunda/menunggu bayar.', 'info');
+                        },
+                        onError: (result) => {
+                            console.log('payment error!', result);
+                            showToast('Pembayaran gagal.', 'error');
+                        },
+                        onClose: () => {
+                            console.log('customer closed the popup tanpa menyelesaikan pembayaran');
+                        }
+                    });
+                } else {
+                    throw new Error("SDK Midtrans tidak termuat. Periksa koneksi internet.");
+                }
+            } catch (err) {
+                console.error("Real Snap Error:", err);
+                showToast(err.message, 'error');
+                // Fallback to Mock if in Sandbox
+                if (payConfig.midtrans_mode === 'sandbox') {
+                    setActiveInvoice(inv);
+                }
+            }
         } else {
             setActiveInvoice(inv);
         }
@@ -444,8 +489,9 @@ export default function PaymentHistory({ user, showToast }) {
         } catch (err) { console.error(err); showToast('Gagal kirim bukti.', 'error'); }
     };
 
-    // Callback for Mock Gateway
-    const onPaymentSuccess = async () => {
+    // Callback for Mock Gateway (Refactored to take inv)
+    const onPaymentSuccess = async (targetInv = activeInvoice) => {
+        if (!targetInv) return;
         try {
             const updates = {
                 status: 'paid',
@@ -453,26 +499,26 @@ export default function PaymentHistory({ user, showToast }) {
                 payment_method: 'Midtrans VA',
                 transaction_id: `MID-${Date.now()}`
             };
-            await supabase.from('invoices').update(updates).eq('id', activeInvoice.id);
+            await supabase.from('invoices').update(updates).eq('id', targetInv.id);
 
             // Update Registration Status
             const { data: regData } = await supabase
                 .from('registrations')
                 .select('status')
-                .eq('id', activeInvoice.registration_id)
+                .eq('id', targetInv.registration_id)
                 .single();
 
             const currentRegStatus = regData?.status;
             let newRegStatus = 'verified';
-            if (currentRegStatus === 'lulus' || activeInvoice.description.includes('Daftar Ulang')) {
+            if (currentRegStatus === 'lulus' || targetInv.description.toLowerCase().includes('daftar ulang')) {
                 newRegStatus = 'paid';
             }
 
-            await supabase.from('registrations').update({ status: newRegStatus }).eq('id', activeInvoice.registration_id);
+            await supabase.from('registrations').update({ status: newRegStatus }).eq('id', targetInv.registration_id);
 
-            showToast('Pembayaran Berhasil! Status pendaftaran diperbarui.');
+            showToast('Pembayaran Berhasil! Status pendaftaran diperbarui.', 'success');
             setActiveInvoice(null);
-        } catch (err) { console.error(err); showToast('Gagal memproses pembayaran.', 'error'); }
+        } catch (err) { console.error(err); showToast('Gagal memproses status pembayaran.', 'error'); }
     };
 
     return (
@@ -637,26 +683,6 @@ export default function PaymentHistory({ user, showToast }) {
                 </div>
             )}
 
-            {/* Midtrans Flow */}
-            {activeInvoice && payConfig.gateway_active === 'midtrans' && payConfig.midtrans_mode === 'production' && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <Card className="p-8 text-center max-w-sm">
-                        <CreditCard size={48} className="mx-auto text-emerald-500 mb-4" />
-                        <h3 className="font-bold text-lg mb-2">Menghubungkan ke Midtrans...</h3>
-                        <p className="text-sm text-slate-500 mb-6">
-                            Sistem sedang menyiapkan gerbang pembayaran aman. Pastikan koneksi internet Anda stabil.
-                        </p>
-                        <div className="flex gap-2">
-                            <Button className="flex-1" onClick={() => {
-                                // Placeholder for real Snap Token call
-                                alert("Fitur Production memerlukan integrasi Snap Token dari backend (Supabase Edge Func atau WA-Server). Saat ini dialihkan ke Manual Simulator.");
-                                setPayConfig(prev => ({ ...prev, midtrans_mode: 'sandbox' }));
-                            }}>Lanjutkan (Simulasi)</Button>
-                            <Button variant="secondary" onClick={() => setActiveInvoice(null)}>Batal</Button>
-                        </div>
-                    </Card>
-                </div>
-            )}
 
             <MidtransMock
                 isOpen={!!activeInvoice && payConfig.gateway_active === 'midtrans' && payConfig.midtrans_mode !== 'production'}
