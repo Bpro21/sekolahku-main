@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, User, LogOut, Settings, Moon, Sun, ChevronDown, CheckCircle } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 
-export default function Header({ user, isAdmin, onLogout, onNavigate, theme, darkMode, onToggleDarkMode }) {
+export default function Header({ user, isAdmin, onLogout, onNavigate, theme, darkMode, onToggleDarkMode, appSettings }) {
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState([]);
@@ -10,6 +11,8 @@ export default function Header({ user, isAdmin, onLogout, onNavigate, theme, dar
 
     const profileRef = useRef(null);
     const notifRef = useRef(null);
+
+    const navigate = useNavigate();
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -99,14 +102,30 @@ export default function Header({ user, isAdmin, onLogout, onNavigate, theme, dar
     return (
         <header className="sticky top-0 z-30 flex w-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 transition-colors duration-300">
             <div className="flex flex-grow items-center justify-between px-4 py-3 md:px-6 2xl:px-11">
-                <div className="flex items-center gap-2 sm:gap-4 lg:hidden">
-                    {/* Hamburger Toggle could go here if moving Sidebar logic */}
+                <div className="hidden lg:block flex-1 max-w-md">
+                    {/* Placeholder for center content if needed */}
                 </div>
 
-                <div className="hidden sm:block">
-                    {/* Search or Breadcrumbs could go here */}
-                </div>
-                <div className="flex items-center gap-6 ml-auto">
+                <div className="flex items-center gap-4 ml-auto">
+                    {/* Back to Website Link (Logo Only) */}
+                    <button
+                        onClick={() => navigate('/')}
+                        className="group flex flex-col items-center hover:opacity-80 transition-all p-1"
+                        title="Kembali ke Website Utama"
+                    >
+                        {appSettings?.app_logo ? (
+                            <img src={appSettings.app_logo} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow-sm border border-slate-100 dark:border-slate-800" />
+                        ) : (
+                            <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-md">
+                                {appSettings?.app_name?.[0] || 'S'}
+                            </div>
+                        )}
+                        <span className="text-[7px] font-black uppercase tracking-tighter text-slate-400 mt-1">Website</span>
+                    </button>
+
+                    {/* Divider */}
+                    <div className="h-6 w-px bg-slate-100 dark:bg-slate-800 hidden sm:block"></div>
+
                     {/* Dark Mode Toggle */}
                     <button
                         type="button"

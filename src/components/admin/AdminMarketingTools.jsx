@@ -42,7 +42,7 @@ export default function AdminMarketingTools({ showToast }) {
                 { data: rab }
             ] = await Promise.all([
                 supabase.from('academic_years').select('*'),
-                supabase.from('registrations').select('id, academic_year, academic_year_id'),
+                supabase.from('registrations').select('id, academic_year'),
                 supabase.from('invoices').select('*'),
                 supabase.from('marketing_rab').select('*').order('created_at', { ascending: false })
             ]);
@@ -472,7 +472,7 @@ export default function AdminMarketingTools({ showToast }) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left: Charts */}
                 <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 h-96 flex flex-col">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 h-96 min-h-[400px] flex flex-col">
                         <h3 className="font-bold text-slate-800 dark:text-white mb-6 text-sm uppercase flex items-center gap-2 tracking-wider">
                             <PieChart size={18} className="text-slate-400" /> Analisa Keuangan
                         </h3>

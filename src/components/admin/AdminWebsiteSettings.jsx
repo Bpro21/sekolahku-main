@@ -727,7 +727,7 @@ export default function AdminWebsiteSettings({ showToast }) {
                             </div>
                             <Button
                                 onClick={() => {
-                                    const newProgram = { title: '', desc: '', icon: 'Book' };
+                                    const newProgram = { title: '', desc: '', img: '', icon: 'Book' };
                                     const currentPrograms = settings.landing_page?.programs || [];
                                     handleLandingPageChange('programs', [...currentPrograms, newProgram]);
                                     showToast('Program baru ditambahkan');
@@ -744,7 +744,7 @@ export default function AdminWebsiteSettings({ showToast }) {
                                 <h4 className="text-lg font-bold text-slate-600 dark:text-slate-400 mb-2">Belum Ada Program</h4>
                                 <Button
                                     onClick={() => {
-                                        const newProgram = { title: '', desc: '', icon: 'Book' };
+                                        const newProgram = { title: '', desc: '', img: '', icon: 'Book' };
                                         handleLandingPageChange('programs', [newProgram]);
                                         showToast('Program baru ditambahkan');
                                     }}
@@ -784,7 +784,7 @@ export default function AdminWebsiteSettings({ showToast }) {
                                                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Deskripsi Singkat</label>
                                                 <textarea
                                                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none transition-all"
-                                                    rows={3}
+                                                    rows={2}
                                                     placeholder="Deskripsi singkat program..."
                                                     value={program.desc}
                                                     onChange={(e) => {
@@ -793,6 +793,79 @@ export default function AdminWebsiteSettings({ showToast }) {
                                                         handleLandingPageChange('programs', newPrograms);
                                                     }}
                                                 />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-2">
+                                                    Detail Program (Muncul saat diklik)
+                                                    <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter italic">Support Markdown</span>
+                                                </label>
+                                                <textarea
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
+                                                    rows={6}
+                                                    placeholder="Jelaskan detail program, kurikulum, fasilitas, dll..."
+                                                    value={program.details || ''}
+                                                    onChange={(e) => {
+                                                        const newPrograms = [...(settings.landing_page.programs || [])];
+                                                        newPrograms[idx] = { ...newPrograms[idx], details: e.target.value };
+                                                        handleLandingPageChange('programs', newPrograms);
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Gambar Program</label>
+                                                <div className="flex items-start gap-4">
+                                                    {program.img ? (
+                                                        <div className="w-24 h-24 rounded-xl border bg-slate-100 dark:bg-slate-900 overflow-hidden relative group/img shadow-sm">
+                                                            <img src={program.img} className="w-full h-full object-cover" alt="Preview" />
+                                                            <button
+                                                                onClick={() => {
+                                                                    const newPrograms = [...(settings.landing_page.programs || [])];
+                                                                    newPrograms[idx] = { ...newPrograms[idx], img: '' };
+                                                                    handleLandingPageChange('programs', newPrograms);
+                                                                }}
+                                                                className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 flex items-center justify-center text-white transition-all"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+                                                            <ImageIcon size={24} />
+                                                            <span className="text-[10px] mt-1">Belum Ada</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1">
+                                                        <div className="relative">
+                                                            <Button variant="outline" className="w-full text-xs h-9">
+                                                                {uploading ? '...' : 'Pilih Foto'}
+                                                            </Button>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={async (e) => {
+                                                                    const file = e.target.files[0];
+                                                                    if (!file) return;
+                                                                    setUploading(true);
+                                                                    try {
+                                                                        const b64 = await fileToBase64(file);
+                                                                        const newPrograms = [...(settings.landing_page.programs || [])];
+                                                                        newPrograms[idx] = { ...newPrograms[idx], img: b64 };
+                                                                        handleLandingPageChange('programs', newPrograms);
+                                                                        showToast('Gambar berhasil diupload');
+                                                                    } catch (err) {
+                                                                        showToast('Gagal upload: ' + err.message, 'error');
+                                                                    } finally {
+                                                                        setUploading(false);
+                                                                    }
+                                                                }}
+                                                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                                            />
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">
+                                                            Format: JPG, PNG, WEBP. Maks 2MB. Dimensi ideal 4:3.
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

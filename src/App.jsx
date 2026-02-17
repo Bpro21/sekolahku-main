@@ -598,6 +598,7 @@ fbq('track', 'PageView');`;
                 <Header
                   user={user}
                   isAdmin={isAdmin}
+                  appSettings={appSettings}
                   onLogout={handleLogout}
                   onNavigate={(tab) => navigate(TAB_TO_PATH[tab] || tab)}
                   theme={theme}

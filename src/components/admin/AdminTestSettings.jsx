@@ -116,10 +116,14 @@ export default function AdminTestSettings({ showToast }) {
             if (Array.isArray(parsed)) {
                 let count = 0;
                 const questionsToInsert = parsed.map(q => ({
-                    ...q,
+                    text: q.text || '',
+                    question_text: q.text || '',       // satisfy NOT NULL on legacy column
+                    options: q.options || [],
+                    correct: q.correct || '',
+                    correct_answer: q.correct || '',   // legacy column
                     category: genCategory,
-                    level: genLevel,
-                    created_at: new Date().toISOString()
+                    religion: q.religion || genReligion || 'General',
+                    level: genLevel
                 }));
 
                 const { error } = await supabase.from('questions').insert(questionsToInsert);
@@ -135,12 +139,23 @@ export default function AdminTestSettings({ showToast }) {
 
     const handleSaveQuestion = async () => {
         try {
+            // Sanitize: only send known columns to avoid RLS errors
+            // Include both old (question_text, correct_answer) and new (text, correct) column names
+            const data = {
+                text: editingQ.text,
+                question_text: editingQ.text,       // satisfy NOT NULL on legacy column
+                options: editingQ.options,
+                correct: editingQ.correct,
+                correct_answer: editingQ.correct,   // legacy column
+                category: editingQ.category,
+                religion: editingQ.religion || 'General',
+                level: editingQ.level || 'SD'
+            };
             if (editingQ.id) {
-                const { id, ...data } = editingQ;
-                const { error } = await supabase.from('questions').update(data).eq('id', id);
+                const { error } = await supabase.from('questions').update(data).eq('id', editingQ.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from('questions').insert(editingQ);
+                const { error } = await supabase.from('questions').insert(data);
                 if (error) throw error;
             }
             showToast('Soal tersimpan'); setEditingQ(null);

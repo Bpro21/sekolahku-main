@@ -82,55 +82,110 @@ export default function AdminSchoolSettings({ showToast }) {
 
     const handleSaveBranch = async () => {
         try {
-            // Before saving, ensure current form values are saved to the active academic config
             const u = { ...editingBranch };
-            if (u.active_academic_year_id) {
-                if (!u.academic_configs) u.academic_configs = {};
 
-                // For SMK, ensure quota matches sum of majors before saving to config
-                let currentQuota = u.quota;
+            // 1. Fallback for Academic Year ID if not selected
+            // Use the global filter or the first active year found
+            if (!u.active_academic_year_id) {
+                const defaultAY = academicYears.find(ay => ay.is_default)?.id ||
+                    academicYears.find(ay => ay.is_active)?.id ||
+                    (academicYears.length > 0 ? academicYears[0].id : null);
+
+                if (defaultAY) {
+                    u.active_academic_year_id = defaultAY;
+                }
+            }
+
+            // Deep clone configurations to prevent mutation issues
+            const configs = u.academic_configs ? JSON.parse(JSON.stringify(u.academic_configs)) : {};
+
+            if (u.active_academic_year_id) {
+                let currentQuota = parseInt(u.quota) || 0;
+
+                // For SMK, recalculate quota from majors
                 if (u.level === 'SMK' && u.majors && u.majors.length > 0) {
-                    currentQuota = u.majors.reduce((acc, curr) => acc + (curr.quota || 0), 0);
-                    u.quota = currentQuota; // Update main object too
+                    currentQuota = u.majors.reduce((acc, curr) => acc + (parseInt(curr.quota) || 0), 0);
+                    u.quota = currentQuota;
                 }
 
-                u.academic_configs[u.active_academic_year_id] = {
+                // Update the config for the active year in the cloned object
+                configs[u.active_academic_year_id] = {
                     quota: currentQuota,
-                    cost_reg: u.cost_reg,
-                    cost_rereg: u.cost_rereg,
-                    cost_spp: u.cost_spp,
+                    cost_reg: parseInt(u.cost_reg) || 0,
+                    cost_rereg: parseInt(u.cost_rereg) || 0,
+                    cost_spp: parseInt(u.cost_spp) || 0,
                     spp_includes: u.spp_includes || [],
                     majors: u.majors || [],
                     fee_breakdown: u.fee_breakdown || []
                 };
-            } else {
-                // Even if no academic year active, if SMK, force recalculate
-                if (u.level === 'SMK' && u.majors && u.majors.length > 0) {
-                    u.quota = u.majors.reduce((acc, curr) => acc + (curr.quota || 0), 0);
-                }
+
+                u.academic_configs = configs;
+            } else if (u.level === 'SMK' && u.majors && u.majors.length > 0) {
+                u.quota = u.majors.reduce((acc, curr) => acc + (parseInt(curr.quota) || 0), 0);
             }
 
+            // Percobaan 6: Surgical Whitelist
+            // We only send specific columns to avoid RLS 403 Forbidden errors caused by 
+            // sending system columns like 'created_at' or 'id' inside the payload.
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const whitelist = [
+                'name', 'level', 'location', 'quota', 'filled', 'open',
+                'cost_reg', 'cost_rereg', 'facilities', 'majors',
+                'academic_configs', 'info_text'
+            ];
+
+            const sanitizedData = {};
+            whitelist.forEach(field => {
+                if (u[field] !== undefined) sanitizedData[field] = u[field];
+            });
+
+            // Ensure numeric types are correct
+            ['quota', 'filled', 'cost_reg', 'cost_rereg'].forEach(f => {
+                if (sanitizedData[f] !== undefined) sanitizedData[f] = parseInt(sanitizedData[f]) || 0;
+            });
+
             if (u.id) {
-                const { id, ...data } = u;
-                const { error } = await supabase.from('units').update(data).eq('id', id);
+                // For update, the ID goes in the .eq() filter, not the data payload
+                const { error } = await supabase.from('units').update(sanitizedData).eq('id', u.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from('units').insert(u);
+                // For insert, include user_id if available to satisfy RLS ownership
+                if (user) sanitizedData.user_id = user.id;
+                const { error } = await supabase.from('units').insert(sanitizedData);
                 if (error) throw error;
             }
-            showToast('Cabang Sekolah tersimpan'); setEditingBranch(null);
+
+            showToast('Cabang Sekolah tersimpan');
+
+            // Sync global filter with the year we just saved to ensure UI reflects the change
+            if (u.active_academic_year_id) {
+                setSelectedAcademicYear(u.active_academic_year_id);
+            }
+
+            setEditingBranch(null);
             fetchAllData();
-        } catch (e) { showToast(e.message, 'error'); }
+        } catch (e) {
+            console.error(e);
+            showToast('Gagal menyimpan: ' + e.message, 'error');
+        }
     };
 
     const handleSaveWave = async () => {
         try {
+            // Sanitize: only send known columns to avoid RLS errors from system columns
+            const data = {
+                name: editingWave.name,
+                year: editingWave.year,
+                start_date: editingWave.start_date || null,
+                end_date: editingWave.end_date || null,
+                active: editingWave.active ?? true
+            };
             if (editingWave.id) {
-                const { id, ...data } = editingWave;
-                const { error } = await supabase.from('waves').update(data).eq('id', id);
+                const { error } = await supabase.from('waves').update(data).eq('id', editingWave.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from('waves').insert(editingWave);
+                const { error } = await supabase.from('waves').insert(data);
                 if (error) throw error;
             }
             showToast('Gelombang tersimpan'); setEditingWave(null);
@@ -140,12 +195,22 @@ export default function AdminSchoolSettings({ showToast }) {
 
     const handleSaveAcademicYear = async () => {
         try {
+            // Sanitize: only send known columns to avoid RLS errors from system columns
+            const data = {
+                year: editingAcademicYear.year,
+                is_active: editingAcademicYear.is_active ?? false,
+                is_default: editingAcademicYear.is_default ?? false,
+                unit_ids: editingAcademicYear.unit_ids || [],
+                unit_names: editingAcademicYear.unit_names || '',
+                indent_enabled: editingAcademicYear.indent_enabled ?? false,
+                indent_start_date: editingAcademicYear.indent_start_date || null,
+                indent_end_date: editingAcademicYear.indent_end_date || null
+            };
             if (editingAcademicYear.id) {
-                const { id, ...data } = editingAcademicYear;
-                const { error } = await supabase.from('academic_years').update(data).eq('id', id);
+                const { error } = await supabase.from('academic_years').update(data).eq('id', editingAcademicYear.id);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from('academic_years').insert(editingAcademicYear);
+                const { error } = await supabase.from('academic_years').insert(data);
                 if (error) throw error;
             }
             showToast('Tahun Akademik tersimpan'); setEditingAcademicYear(null);
@@ -163,34 +228,54 @@ export default function AdminSchoolSettings({ showToast }) {
                 { year: '2026/2027', is_active: false, is_default: false, indent_enabled: true, indent_start_date: '2025-01-01', indent_end_date: '2025-12-31' }
             ]);
 
-            // 2. Units with Cost Breakdown and SPP
-            await supabase.from('units').insert([
+            // 2. Units with Cost Breakdown and SPP stored in academic_configs
+            // We'll create a default config for the first academic year
+            const activeAY = (await supabase.from('academic_years').select('*').eq('is_active', true).maybeSingle())?.data;
+            const ayId = activeAY?.id;
+
+            const unitPayloads = [
                 {
                     name: 'SD Islam Terpadu Cendekia', level: 'SD', location: 'Kampus A - Jakarta', quota: 100, filled: 5, open: true, cost_reg: 350000, cost_rereg: 8500000,
                     facilities: 'AC, Lapangan Futsal, Lab Komputer, Kantin Sehat', majors: [],
-                    cost_breakdown: [
-                        { name: 'Seragam (4 Stel)', amount: 800000 },
-                        { name: 'Buku Paket & LKS', amount: 500000 },
-                        { name: 'Kegiatan Ekstrakurikuler', amount: 300000 },
-                        { name: 'Asuransi Kesehatan', amount: 200000 }
-                    ],
-                    spp_amount: 450000,
-                    spp_items: ['Biaya Operasional Sekolah', 'Kegiatan Belajar Mengajar', 'Ekstrakurikuler Wajib', 'Perawatan Fasilitas']
+                    academic_configs: ayId ? {
+                        [ayId]: {
+                            quota: 100,
+                            cost_reg: 350000,
+                            cost_rereg: 8500000,
+                            cost_spp: 450000,
+                            spp_includes: ['Biaya Operasional Sekolah', 'Kegiatan Belajar Mengajar', 'Ekstrakurikuler Wajib', 'Perawatan Fasilitas'],
+                            fee_breakdown: [
+                                { label: 'Seragam (4 Stel)', amount: 800000 },
+                                { label: 'Buku Paket & LKS', amount: 500000 },
+                                { label: 'Kegiatan Ekstrakurikuler', amount: 300000 },
+                                { label: 'Asuransi Kesehatan', amount: 200000 }
+                            ]
+                        }
+                    } : {}
                 },
                 {
                     name: 'SMP Islam Terpadu Cendekia', level: 'SMP', location: 'Kampus B - Bandung', quota: 120, filled: 12, open: true, cost_reg: 400000, cost_rereg: 12500000,
                     facilities: 'AC, Asrama Putra/Putri, Masjid Agung, Lab Sains, Perpustakaan Digital', majors: [],
-                    cost_breakdown: [
-                        { name: 'Seragam (5 Stel)', amount: 1200000 },
-                        { name: 'Buku Paket & Modul', amount: 750000 },
-                        { name: 'Biaya Asrama (1 Tahun)', amount: 3500000 },
-                        { name: 'Kegiatan OSIS & Pramuka', amount: 400000 },
-                        { name: 'Asuransi & Kesehatan', amount: 300000 }
-                    ],
-                    spp_amount: 850000,
-                    spp_items: ['Biaya Operasional Sekolah', 'Biaya Asrama & Makan', 'Ekstrakurikuler Wajib', 'Perawatan Fasilitas & Lab']
+                    academic_configs: ayId ? {
+                        [ayId]: {
+                            quota: 120,
+                            cost_reg: 400000,
+                            cost_rereg: 12500000,
+                            cost_spp: 850000,
+                            spp_includes: ['Biaya Operasional Sekolah', 'Biaya Asrama & Makan', 'Ekstrakurikuler Wajib', 'Perawatan Fasilitas & Lab'],
+                            fee_breakdown: [
+                                { label: 'Seragam (5 Stel)', amount: 1200000 },
+                                { label: 'Buku Paket & Modul', amount: 750000 },
+                                { label: 'Biaya Asrama (1 Tahun)', amount: 3500000 },
+                                { label: 'Kegiatan OSIS & Pramuka', amount: 400000 },
+                                { label: 'Asuransi & Kesehatan', amount: 300000 }
+                            ]
+                        }
+                    } : {}
                 }
-            ]);
+            ];
+
+            await supabase.from('units').insert(unitPayloads);
 
             // 3. Waves
             await supabase.from('waves').insert([
@@ -270,25 +355,33 @@ export default function AdminSchoolSettings({ showToast }) {
         const branchCopy = { ...branch };
 
         // Override active AY with globally selected AY filter to improve UX
+        // If no global filter, fallback to default active year
         if (selectedAcademicYear) {
             branchCopy.active_academic_year_id = selectedAcademicYear;
+        } else if (academicYears.length > 0) {
+            const defaultAY = academicYears.find(ay => ay.is_default)?.id ||
+                academicYears.find(ay => ay.is_active)?.id ||
+                academicYears[0].id;
+            branchCopy.active_academic_year_id = defaultAY;
         }
 
         // If there's an active academic year and config exists, load values from it
         if (branchCopy.active_academic_year_id && branchCopy.academic_configs) {
             const config = branchCopy.academic_configs[branchCopy.active_academic_year_id];
             if (config) {
-                branchCopy.quota = config.quota ?? branchCopy.quota ?? 0;
-                branchCopy.cost_reg = config.cost_reg ?? branchCopy.cost_reg ?? 0;
-                branchCopy.cost_rereg = config.cost_rereg ?? branchCopy.cost_rereg ?? 0;
-                branchCopy.majors = config.majors ?? branchCopy.majors ?? [];
+                // Use explicit undefined check to allow 0 as a valid value
+                branchCopy.quota = config.quota !== undefined ? config.quota : (branchCopy.quota ?? 0);
+                branchCopy.cost_reg = config.cost_reg !== undefined ? config.cost_reg : (branchCopy.cost_reg ?? 0);
+                branchCopy.cost_rereg = config.cost_rereg !== undefined ? config.cost_rereg : (branchCopy.cost_rereg ?? 0);
+                branchCopy.cost_spp = config.cost_spp !== undefined ? config.cost_spp : (branchCopy.cost_spp ?? 0);
+                branchCopy.spp_includes = config.spp_includes || branchCopy.spp_includes || [];
+                branchCopy.majors = config.majors || branchCopy.majors || [];
 
                 // Load fee breakdown (support legacy cost_breakdown)
                 const breakdown = config.fee_breakdown || config.cost_breakdown || branchCopy.fee_breakdown || branchCopy.cost_breakdown || [];
                 branchCopy.fee_breakdown = breakdown;
             } else {
                 // If config doesn't exist for this year, keep global values as starting point
-                // Ensure fee_breakdown is loaded from global
                 branchCopy.fee_breakdown = branchCopy.fee_breakdown || branchCopy.cost_breakdown || [];
             }
         } else {
@@ -478,14 +571,14 @@ export default function AdminSchoolSettings({ showToast }) {
                                     onChange={(e) => setSelectedAcademicYear(e.target.value)}
                                     className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                                 >
-                                    {academicYears.filter(ay => ay.is_active).map(ay => (
+                                    {academicYears.map(ay => (
                                         <option key={ay.id} value={ay.id}>
-                                            {ay.year} {ay.is_default ? '(Default)' : ''}
+                                            {ay.year} {ay.is_default ? '(Default)' : ''} {!ay.is_active ? '(Nonaktif)' : ''}
                                         </option>
                                     ))}
                                 </select>
                             </div>
-                            <Button onClick={() => setEditingBranch({ name: '', level: 'SD', quota: 0, location: '', cost_reg: 0, cost_rereg: 0, open: true, info_text: '' })} className="shadow-lg shadow-emerald-200">
+                            <Button onClick={() => setEditingBranch({ name: '', level: 'SD', quota: 0, location: '', cost_reg: 0, cost_rereg: 0, open: true, info_text: '', active_academic_year_id: selectedAcademicYear, cost_spp: 0, spp_includes: [], fee_breakdown: [], majors: [], academic_configs: {} })} className="shadow-lg shadow-emerald-200">
                                 <Plus size={18} /> Tambah Cabang
                             </Button>
                         </div>
@@ -766,9 +859,11 @@ export default function AdminSchoolSettings({ showToast }) {
                                     const updatedConfigs = { ...(editingBranch.academic_configs || {}) };
                                     if (oldId) {
                                         updatedConfigs[oldId] = {
-                                            quota: editingBranch.quota || 0,
-                                            cost_reg: editingBranch.cost_reg || 0,
-                                            cost_rereg: editingBranch.cost_rereg || 0,
+                                            quota: editingBranch.quota ?? 0,
+                                            cost_reg: editingBranch.cost_reg ?? 0,
+                                            cost_rereg: editingBranch.cost_rereg ?? 0,
+                                            cost_spp: editingBranch.cost_spp ?? 0,
+                                            spp_includes: editingBranch.spp_includes || [],
                                             majors: editingBranch.majors || [],
                                             fee_breakdown: editingBranch.fee_breakdown || []
                                         };
@@ -780,21 +875,18 @@ export default function AdminSchoolSettings({ showToast }) {
                                         const config = updatedConfigs[newId];
                                         const breakdown = config.fee_breakdown || config.cost_breakdown || [];
                                         newValues = {
-                                            quota: config.quota,
-                                            cost_reg: config.cost_reg,
-                                            cost_rereg: config.cost_rereg,
-                                            majors: config.majors,
+                                            quota: config.quota !== undefined ? config.quota : editingBranch.quota,
+                                            cost_reg: config.cost_reg !== undefined ? config.cost_reg : editingBranch.cost_reg,
+                                            cost_rereg: config.cost_rereg !== undefined ? config.cost_rereg : editingBranch.cost_rereg,
+                                            cost_spp: config.cost_spp !== undefined ? config.cost_spp : editingBranch.cost_spp,
+                                            spp_includes: config.spp_includes || editingBranch.spp_includes || [],
+                                            majors: config.majors || editingBranch.majors || [],
                                             fee_breakdown: breakdown
                                         };
                                     } else {
-                                        // Keep current values as base for new config
-                                        const breakdown = editingBranch.fee_breakdown || editingBranch.cost_breakdown || [];
+                                        // If selecting a year with no config, use current values as template
                                         newValues = {
-                                            quota: editingBranch.quota || 0,
-                                            cost_reg: editingBranch.cost_reg || 0,
-                                            cost_rereg: editingBranch.cost_rereg || 0,
-                                            majors: editingBranch.majors || [],
-                                            fee_breakdown: breakdown
+                                            // Keep current form values but they will be saved to the new Year ID on next save/switch
                                         };
                                     }
 
@@ -821,7 +913,7 @@ export default function AdminSchoolSettings({ showToast }) {
                                 value={
                                     editingBranch.level === 'SMK'
                                         ? (editingBranch.majors || []).reduce((a, b) => a + (b.quota || 0), 0)
-                                        : (editingBranch.academic_configs?.[editingBranch.active_academic_year_id]?.quota ?? editingBranch.quota ?? 0)
+                                        : (editingBranch.quota ?? 0)
                                 }
                                 onChange={e => {
                                     const newQuota = parseInt(e.target.value) || 0;

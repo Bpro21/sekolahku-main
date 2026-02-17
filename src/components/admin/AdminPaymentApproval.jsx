@@ -110,6 +110,30 @@ export default function AdminPaymentApproval({ showToast }) {
         };
     }, []);
 
+    // Helper to open Base64 or Link in New Tab safely
+    const handleOpenProof = (src) => {
+        if (!src) return;
+        if (src.startsWith('data:')) {
+            try {
+                const byteString = atob(src.split(',')[1]);
+                const mimeString = src.split(',')[0].split(':')[1].split(';')[0];
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([ab], { type: mimeString });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } catch (err) {
+                console.error("Failed to open data URI as blob:", err);
+                window.open(src, '_blank');
+            }
+        } else {
+            window.open(src, '_blank');
+        }
+    };
+
     // Handle Selection & Plan Init
     useEffect(() => {
         if (selectedInv) {
@@ -1057,7 +1081,7 @@ export default function AdminPaymentApproval({ showToast }) {
                                                                 <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full max-w-sm shadow-sm">
                                                                     <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Bukti Transfer (Saat Ini)</p>
                                                                     {(selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer) ? (
-                                                                        <div className="relative group rounded-lg overflow-hidden cursor-pointer mb-3" onClick={() => window.open(selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer, '_blank')}>
+                                                                        <div className="relative group rounded-lg overflow-hidden cursor-pointer mb-3" onClick={() => handleOpenProof(selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer)}>
                                                                             <img
                                                                                 src={selectedInv.proof_of_transfer || selectedInv.payment_proof || term.proof_of_transfer}
                                                                                 className="w-full h-auto max-h-[200px] object-cover bg-slate-50"
@@ -1131,14 +1155,12 @@ export default function AdminPaymentApproval({ showToast }) {
                                             <div className="hidden p-4 bg-red-50 text-red-600 text-xs rounded border border-red-100">
                                                 Gagal menampilkan gambar. Link file kemungkinan salah atau sudah expired.
                                             </div>
-                                            <a
-                                                href={selectedInv.proof_of_transfer || selectedInv.payment_proof}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-emerald-600 hover:underline text-xs font-bold flex items-center gap-1"
+                                            <button
+                                                onClick={() => handleOpenProof(selectedInv.proof_of_transfer || selectedInv.payment_proof)}
+                                                className="text-emerald-600 hover:underline text-xs font-bold flex items-center gap-1 cursor-pointer"
                                             >
                                                 <Eye size={14} /> Buka Gambar di Tab Baru
-                                            </a>
+                                            </button>
                                         </>
                                     ) : (
                                         <div className="text-slate-400 italic text-sm">Tidak ada bukti transfer yang diunggah.</div>

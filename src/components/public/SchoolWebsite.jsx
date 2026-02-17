@@ -56,8 +56,12 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     setActiveAcademicYear(activeYear);
                 }
 
-                // 3. Waves
-                const { data: wavesData } = await supabase.from('waves').select('*').eq('active', true);
+                // 3. Waves (Fetch all for current academic year to show next wave)
+                const { data: wavesData } = await supabase
+                    .from('waves')
+                    .select('*')
+                    .eq('year', activeYear?.year)
+                    .order('start_date', { ascending: true });
                 if (wavesData) setWaves(wavesData);
 
                 // 4. Units
@@ -87,14 +91,18 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     }
                 });
 
-                const branchesWithStats = fetchedBranches.map(b => ({
-                    ...b,
-                    filled: stats.branches[b.id] || 0,
-                    majors: (b.academic_configs?.[activeYear?.id]?.majors || b.majors || []).map(m => ({
-                        ...m,
-                        filled: stats.majors[`${b.id}-${(m.name || '').toLowerCase()}`] || 0
-                    }))
-                }));
+                const branchesWithStats = fetchedBranches.map(b => {
+                    const config = b.academic_configs?.[activeYear?.id];
+                    return {
+                        ...b,
+                        quota: config?.quota !== undefined ? config.quota : b.quota,
+                        filled: stats.branches[b.id] || 0,
+                        majors: (config?.majors || b.majors || []).map(m => ({
+                            ...m,
+                            filled: stats.majors[`${b.id}-${(m.name || '').toLowerCase()}`] || 0
+                        }))
+                    };
+                });
                 setBranches(branchesWithStats);
 
                 // 5. Process Data
@@ -1072,6 +1080,195 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     </div>
                 </div>
             </section>
+
+            {/* Admission Wave Section */}
+            {waves.length > 0 && (
+                <section id="waves" className="py-20 bg-slate-50 overflow-hidden">
+                    <div className="container mx-auto px-4">
+                        <div className="text-center max-w-2xl mx-auto mb-12">
+                            <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-3 block">Jadwal & Periode</span>
+                            <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">Gelombang Pendaftaran</h2>
+                            <p className="text-slate-600">Pantau periode pendaftaran aktif dan bersiaplah untuk gelombang selanjutnya agar tidak ketinggalan kuota.</p>
+                        </div>
+
+                        <div className="grid lg:grid-cols-12 gap-8 items-start">
+                            {/* Active Wave Card */}
+                            {(() => {
+                                const now = new Date();
+                                const activeWave = waves.find(w => {
+                                    const start = new Date(w.start_date);
+                                    const end = new Date(w.end_date);
+                                    end.setHours(23, 59, 59);
+                                    return now >= start && now <= end && w.active;
+                                }) || waves.find(w => w.active);
+
+                                const nextWave = waves.find(w => new Date(w.start_date) > now);
+
+                                return (
+                                    <>
+                                        <div className={`${nextWave ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-6`}>
+                                            {activeWave ? (
+                                                <div className="bg-white rounded-3xl p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50 relative overflow-hidden group">
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+
+                                                    <div className="relative z-10">
+                                                        <div className="flex flex-wrap items-center gap-3 mb-6">
+                                                            <div className="bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></div>
+                                                                Pendaftaran Sedang Berlangsung
+                                                            </div>
+                                                            <div className="bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                                                TA {activeWave.year}
+                                                            </div>
+                                                        </div>
+
+                                                        <h3 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">{activeWave.name}</h3>
+                                                        <p className="text-slate-500 font-medium mb-8">Periode: {new Date(activeWave.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })} — {new Date(activeWave.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+
+                                                        <div className="grid sm:grid-cols-2 gap-8">
+                                                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 transition-all hover:shadow-md">
+                                                                <div className="flex items-center gap-3 mb-4 text-blue-600">
+                                                                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                                        <Clock size={20} />
+                                                                    </div>
+                                                                    <span className="font-bold text-sm uppercase tracking-wide">Sisa Waktu</span>
+                                                                </div>
+                                                                {(() => {
+                                                                    const end = new Date(activeWave.end_date);
+                                                                    end.setHours(23, 59, 59);
+                                                                    const diff = end - now;
+                                                                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+                                                                    return (
+                                                                        <div className="flex items-baseline gap-2">
+                                                                            <span className="text-4xl font-black text-slate-900">{days > 0 ? days : 0}</span>
+                                                                            <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Hari Lagi</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
+
+                                                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 transition-all hover:shadow-md">
+                                                                <div className="flex items-center gap-3 mb-4 text-emerald-600">
+                                                                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                                        <Award size={20} />
+                                                                    </div>
+                                                                    <span className="font-bold text-sm uppercase tracking-wide">Status Kuota</span>
+                                                                </div>
+                                                                <div className="space-y-4">
+                                                                    {branches.length > 0 ? (
+                                                                        branches.map((b, i) => {
+                                                                            const percent = b.quota > 0 ? Math.round((b.filled / b.quota) * 100) : 0;
+                                                                            let statusColor = "text-slate-500";
+                                                                            let statusText = "Tersedia";
+
+                                                                            if (percent >= 90) {
+                                                                                statusColor = "text-rose-600";
+                                                                                statusText = "Sangat Terbatas";
+                                                                            } else if (percent >= 70) {
+                                                                                statusColor = "text-amber-600";
+                                                                                statusText = "Hampir Penuh";
+                                                                            } else if (percent > 0) {
+                                                                                statusColor = "text-emerald-600";
+                                                                                statusText = "Sedang Berjalan";
+                                                                            }
+
+                                                                            return (
+                                                                                <div key={b.id || i} className={i !== 0 ? "pt-4 border-t border-slate-200/60" : ""}>
+                                                                                    <div className="flex justify-between items-end mb-1">
+                                                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{b.name}</span>
+                                                                                        <span className={`text-sm font-black ${statusColor}`}>{percent}%</span>
+                                                                                    </div>
+                                                                                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                                                        <div
+                                                                                            className={`h-full transition-all duration-1000 ${percent >= 90 ? 'bg-rose-500' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                                                            style={{ width: `${Math.min(100, percent)}%` }}
+                                                                                        ></div>
+                                                                                    </div>
+                                                                                    <div className="flex justify-between items-center mt-1">
+                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Terisi: {b.filled} / {b.quota}</span>
+                                                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${statusColor}`}>{statusText}</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    ) : (
+                                                                        <div className="text-4xl font-black text-slate-900">0%</div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-8">
+                                                            <button
+                                                                onClick={onLogin}
+                                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all flex items-center justify-center gap-2 group"
+                                                            >
+                                                                Daftar di {activeWave.name}
+                                                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-sm">
+                                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                                                        <Calendar size={32} />
+                                                    </div>
+                                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Pendaftaran Belum Dibuka</h3>
+                                                    <p className="text-slate-500">Saat ini pendaftaran belum tersedia. Pantau informasi gelombang selanjutnya di bawah.</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Next Wave Info */}
+                                        {nextWave && (
+                                            <div className="lg:col-span-5">
+                                                <div className="bg-slate-900 text-white rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden h-full">
+                                                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-10 -mt-10 blur-3xl"></div>
+                                                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
+
+                                                    <div className="relative z-10 flex flex-col h-full">
+                                                        <div className="mb-8">
+                                                            <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-1.5 inline-flex items-center gap-2 mb-4">
+                                                                <Calendar size={14} className="text-blue-400" />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
+                                                            </div>
+                                                            <h3 className="text-2xl font-black mb-2">Gelombang Berikutnya</h3>
+                                                            <p className="text-slate-400 text-sm">Persiapkan berkas Anda lebih awal untuk proses pendaftaran yang lebih lancar.</p>
+                                                        </div>
+
+                                                        <div className="mt-auto space-y-6">
+                                                            <div className="p-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
+                                                                <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-1">{nextWave.name}</div>
+                                                                <div className="text-xl font-black mb-3">Mulai {new Date(nextWave.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                                                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                                    <Clock size={14} />
+                                                                    <span>Sesuai kalender akademik {nextWave.year}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    const el = document.querySelector('#contact');
+                                                                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                                                }}
+                                                                className="w-full bg-white text-slate-900 font-black py-4 rounded-2xl hover:bg-blue-50 transition-colors text-sm"
+                                                            >
+                                                                Hubungi Kami Untuk Info Detail
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* FAQ Section */}
             <section id="faq" className="py-16 bg-white">

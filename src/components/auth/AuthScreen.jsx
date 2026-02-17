@@ -48,8 +48,8 @@ const CountdownTimer = ({ targetDate }) => {
 };
 
 // Helper Component: Display Available Quota
-const QuotaDisplay = ({ units, registrations, academicYears }) => {
-    const [activeTab, setActiveTab] = useState(0); // 0: Regular, 1: Indent
+const QuotaDisplay = ({ units, registrations, academicYears, indentSettings }) => {
+    const [activeTab, setActiveTab] = useState(0); // 0: Regular, 1: Indent External, 2: Indent Internal
 
     if (!units || !academicYears) {
         return <div className="text-xs text-slate-400 italic mb-6">Memuat data kuota...</div>;
@@ -61,10 +61,25 @@ const QuotaDisplay = ({ units, registrations, academicYears }) => {
 
     const defaultAY = academicYears.find(ay => ay.is_default);
     const indentAY = academicYears.find(ay => ay.indent_enabled && !ay.is_default);
+    const isInternalActive = indentSettings?.active;
 
     // Determine which TA to show
-    const currentAY = activeTab === 0 ? defaultAY : indentAY;
-    const themeColor = activeTab === 0 ? 'blue' : 'purple';
+    let currentAY = null;
+    let themeColor = 'blue';
+
+    if (activeTab === 0) {
+        currentAY = defaultAY;
+        themeColor = 'blue';
+    } else if (activeTab === 1) {
+        currentAY = indentAY;
+        themeColor = 'purple';
+    } else if (activeTab === 2) {
+        // Internal indent might target specific years in settings, 
+        // but for quota display we usually show the indent year configured in academic_years
+        // or just use the same indentAY for display purposes.
+        currentAY = indentAY || defaultAY;
+        themeColor = 'emerald';
+    }
 
     if (!currentAY) return null;
 
@@ -82,6 +97,13 @@ const QuotaDisplay = ({ units, registrations, academicYears }) => {
             tabActive: 'bg-purple-600 text-white shadow-md shadow-purple-100',
             accent: 'text-purple-600',
             bar: 'bg-purple-600'
+        },
+        emerald: {
+            bg: 'bg-emerald-50/50',
+            border: 'border-emerald-100',
+            tabActive: 'bg-emerald-600 text-white shadow-md shadow-emerald-100',
+            accent: 'text-emerald-600',
+            bar: 'bg-emerald-600'
         }
     };
 
@@ -90,22 +112,32 @@ const QuotaDisplay = ({ units, registrations, academicYears }) => {
     return (
         <div className="mb-8 animate-fade-in group/quota">
             {/* Tab Selector */}
-            {defaultAY && indentAY && (
-                <div className="flex p-1 bg-slate-100 dark:bg-slate-900 dark:bg-slate-800/50 rounded-xl mb-4 gap-1 border border-slate-200 dark:border-slate-700 shadow-inner">
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 dark:bg-slate-800/50 rounded-xl mb-4 gap-1 border border-slate-200 dark:border-slate-700 shadow-inner">
+                {defaultAY && (
                     <button
                         onClick={() => setActiveTab(0)}
                         className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${activeTab === 0 ? themes.blue.tabActive : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200 dark:hover:text-slate-200 hover:bg-white dark:bg-slate-800/50 dark:hover:bg-slate-700/50'}`}
                     >
                         Pendaftaran Reguler
                     </button>
+                )}
+                {indentAY && (
                     <button
                         onClick={() => setActiveTab(1)}
                         className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${activeTab === 1 ? themes.purple.tabActive : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200 dark:hover:text-slate-200 hover:bg-white dark:bg-slate-800/50 dark:hover:bg-slate-700/50'}`}
                     >
-                        Pendaftaran Inden
+                        Inden Eksternal
                     </button>
-                </div>
-            )}
+                )}
+                {isInternalActive && (
+                    <button
+                        onClick={() => setActiveTab(2)}
+                        className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-300 ${activeTab === 2 ? themes.emerald.tabActive : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:text-slate-200 dark:hover:text-slate-200 hover:bg-white dark:bg-slate-800/50 dark:hover:bg-slate-700/50'}`}
+                    >
+                        Inden Internal
+                    </button>
+                )}
+            </div>
 
             {/* Countdown for Indent */}
             {activeTab === 1 && indentAY?.indent_end_date && (
@@ -123,17 +155,17 @@ const QuotaDisplay = ({ units, registrations, academicYears }) => {
             <div className={`${theme.bg} border ${theme.border} rounded-2xl p-5 shadow-sm overflow-hidden relative transition-all duration-500`}>
                 <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${activeTab === 0 ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'} shadow-sm border border-white/50`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${activeTab === 0 ? 'bg-blue-100 text-blue-600' : activeTab === 1 ? 'bg-purple-100 text-purple-600' : 'bg-emerald-100 text-emerald-600'} shadow-sm border border-white/50`}>
                             <School size={20} />
                         </div>
                         <div>
                             <h4 className="text-xs font-bold text-slate-800 dark:text-white leading-none mb-1.5 uppercase tracking-wide">Kursi Tersedia</h4>
                             <div className="flex items-center gap-1.5">
-                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${activeTab === 0 ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'}`}>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${activeTab === 0 ? 'bg-blue-600 text-white' : activeTab === 1 ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white'}`}>
                                     TA {currentAY.year}
                                 </span>
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
-                                    {activeTab === 0 ? 'Reguler' : 'Indent'}
+                                    {activeTab === 0 ? 'Reguler' : activeTab === 1 ? 'Inden Eksternal' : 'Inden Internal'}
                                 </span>
                             </div>
                         </div>
@@ -266,6 +298,7 @@ export default function AuthScreen({ showToast, onBack }) {
     const [academicYears, setAcademicYears] = useState(null);
     const [units, setUnits] = useState(null);
     const [registrations, setRegistrations] = useState([]);
+    const [indentSettings, setIndentSettings] = useState(null);
 
     // Slider State
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -294,6 +327,10 @@ export default function AuthScreen({ showToast, onBack }) {
                 // Registrations (For Quota)
                 const { data: regsData } = await supabase.from('registrations').select('*');
                 setRegistrations(regsData || []);
+
+                // Indent Settings (Internal)
+                const { data: indentData } = await supabase.from('indent_settings').select('*').maybeSingle();
+                if (indentData) setIndentSettings(indentData);
 
             } catch (e) {
                 console.error("AuthScreen Data Load Error:", e);
@@ -814,7 +851,12 @@ export default function AuthScreen({ showToast, onBack }) {
 
                         {!isLogin && !otpSent && (
                             <>
-                                <QuotaDisplay units={units} registrations={registrations} academicYears={academicYears} />
+                                <QuotaDisplay
+                                    units={units}
+                                    registrations={registrations}
+                                    academicYears={academicYears}
+                                    indentSettings={indentSettings}
+                                />
                             </>
                         )}
 

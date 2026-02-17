@@ -38,11 +38,14 @@ export default function AdminVoucherManager({ showToast }) {
 
     const handleSaveVoucher = async () => {
         try {
+            // Sanitize: only send known columns to avoid RLS errors
             const data = {
-                ...editingVoucher,
-                code: editingVoucher.code.toUpperCase().replace(/\s/g, ''),
-                amount: parseInt(editingVoucher.amount),
-                quota: parseInt(editingVoucher.quota) || 0
+                code: (editingVoucher.code || '').toUpperCase().replace(/\s/g, ''),
+                type: editingVoucher.type,
+                amount: parseInt(editingVoucher.amount) || 0,
+                quota: parseInt(editingVoucher.quota) || 0,
+                description: editingVoucher.description || '',
+                active: editingVoucher.active ?? true
             };
 
             if (editingVoucher.id) {

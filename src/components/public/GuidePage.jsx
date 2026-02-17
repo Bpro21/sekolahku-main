@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, ClipboardList, UserCheck, FileText, Users, Megaphone, ArrowRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ClipboardList, UserCheck, FileText, Users, Megaphone, ArrowRight, Phone, Mail } from 'lucide-react';
 import PublicHeader from './PublicHeader';
 import { supabase } from '../../config/supabase';
 
@@ -27,6 +27,16 @@ const GuidePage = ({ user: propUser, isAdmin }) => {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    const contactWA = settings?.landing_page?.contact_wa || '0812-3456-7890';
+    const contactOffice = settings?.landing_page?.contact_office || '(021) 7788-9900';
+    const contactEmail = settings?.landing_page?.contact_email || 'ppdb@cendekia.sch.id';
+    const schoolAddress = settings?.landing_page?.address || 'Jl. Pendidikan No. 123, Komplek Pelajar, Kota Harapan, Indonesia 12345';
+    const mapsLink = settings?.landing_page?.maps_link || '#';
+    const schoolName = settings?.school_name || 'Sekolah Islam Terpadu Cendekia';
+    const appName = settings?.app_name || 'PPDB Online';
+    const footerDesc = settings?.landing_page?.footer_desc || `Panitia Penerimaan Peserta Didik Baru ${schoolName} Tahun Ajaran 2025/2026. Melayani dengan sepenuh hati untuk masa depan pendidikan Indonesia.`;
+    const footerCopyright = settings?.landing_page?.footer_copyright || `© ${new Date().getFullYear()} Panitia PPDB ${schoolName}. All rights reserved.`;
 
     const steps = [
         {
@@ -87,18 +97,29 @@ const GuidePage = ({ user: propUser, isAdmin }) => {
             <PublicHeader settings={settings} user={user} isAdmin={isAdmin} />
 
             {/* Hero Section */}
-            <header className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-emerald-500 text-white pt-40 pb-32 px-6 overflow-hidden">
-                <div className="absolute inset-0 bg-pattern opacity-10"></div>
-                <div className="absolute top-20 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+            <header className="relative pt-40 pb-32 px-6 overflow-hidden min-h-[500px] flex items-center">
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"}
+                        alt="School Building"
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/80 to-blue-900/40"></div>
+                </div>
 
                 <div className="container mx-auto max-w-4xl text-center relative z-10 animate-fade-in-up">
-                    <span className="inline-block py-1 px-4 rounded-full bg-blue-500/30 backdrop-blur-md border border-blue-400/30 text-blue-50 font-medium text-sm mb-6">
-                        Tahun Ajaran 2025/2026
+                    <span className="inline-flex items-center gap-2 bg-yellow-500/20 border border-yellow-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+                        <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                        <span className="text-yellow-300 text-xs font-bold tracking-wide uppercase">
+                            Tahun Ajaran 2025/2026
+                        </span>
                     </span>
-                    <h1 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight">
-                        Alur Pendaftaran <br className="hidden md:block" /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-300">Mudah & Cepat</span>
+
+                    <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight text-white">
+                        Alur Pendaftaran <br />
+                        <span style={{ color: '#fbbf24' }}>Mudah & Cepat</span>
                     </h1>
-                    <p className="text-blue-100 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                    <p className="text-lg md:text-xl text-blue-100 max-w-2xl mx-auto leading-relaxed">
                         Kami merancang proses pendaftaran yang simpel agar Anda bisa fokus pada persiapan masa depan buah hati Anda.
                     </p>
                 </div>
@@ -167,39 +188,84 @@ const GuidePage = ({ user: propUser, isAdmin }) => {
                     </span>
                 </div>
 
-                {/* CTA Section */}
-                <div className="bg-gradient-to-r from-slate-900 to-blue-900 rounded-[2.5rem] p-8 md:p-16 text-center text-white shadow-2xl shadow-blue-900/40 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-full bg-pattern opacity-5"></div>
-                    <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-500 rounded-full blur-3xl opacity-20"></div>
-                    <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-emerald-500 rounded-full blur-3xl opacity-20"></div>
+                {/* CTA Section - Redesigned for High Contrast & Premium Feel */}
+                <div className="relative group overflow-hidden rounded-[3rem] p-12 md:p-20 text-center shadow-2xl shadow-blue-500/20">
+                    {/* Background Layer */}
+                    <div className="absolute inset-0 bg-blue-600 transition-colors duration-500 group-hover:bg-blue-500"></div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-900 opacity-90"></div>
 
-                    <div className="relative z-10 max-w-2xl mx-auto">
-                        <h2 className="text-3xl md:text-5xl font-bold mb-6">Siap Bergabung Bersama Kami?</h2>
-                        <p className="text-blue-100 text-lg mb-10">
-                            Kuota terbatas untuk Gelombang 1. Amankan kursi Anda sekarang juga sebelum pendaftaran ditutup.
+                    {/* Decorative Elements */}
+                    <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
+                    <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-400 rounded-full blur-[100px] opacity-30 animate-pulse"></div>
+                    <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-400 rounded-full blur-[100px] opacity-30 animate-pulse" style={{ animationDelay: '1s' }}></div>
+
+                    <div className="relative z-10 max-w-3xl mx-auto">
+                        <span className="inline-block px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-blue-200 text-sm font-bold uppercase tracking-widest mb-6">
+                            Gabung Sekarang
+                        </span>
+
+                        <h2 className="text-4xl md:text-6xl font-extrabold mb-6 text-white leading-tight drop-shadow-sm">
+                            Siap Bergabung <br /> Bersama <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-400">Kami?</span>
+                        </h2>
+
+                        <p className="text-blue-100 text-lg md:text-xl mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+                            Jangan lewatkan kesempatan emas ini. Kuota Gelombang 1 sangat terbatas, amankan kursi masa depan Anda sekarang juga!
                         </p>
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                             <button
                                 onClick={() => navigate('/')}
-                                className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full sm:w-auto px-10 py-5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-blue-900 rounded-2xl font-black text-lg shadow-xl shadow-yellow-500/40 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3"
                             >
-                                Daftar Online Sekarang <ArrowRight size={20} />
+                                Daftar Online Sekarang <ArrowRight size={24} />
                             </button>
+
                             <a
-                                href="https://wa.me/6281234567890"
+                                href={`https://wa.me/${contactWA.replace(/\D/g, '')}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="w-full md:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold backdrop-blur-sm transition flex items-center justify-center gap-2"
+                                className="w-full sm:w-auto px-10 py-5 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-bold text-lg backdrop-blur-md border border-white/20 transition-all flex items-center justify-center gap-3"
                             >
-                                <Megaphone size={20} /> Tanya Admin
+                                <Megaphone size={22} /> Tanya Admin
                             </a>
                         </div>
                     </div>
                 </div>
             </main>
 
-            <footer className="bg-slate-50 text-slate-400 py-12 text-center text-sm">
-                <p>&copy; {new Date().getFullYear()} Panitia PPDB Online. All rights reserved.</p>
+            {/* Footer */}
+            <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+                <div className="container mx-auto px-6">
+                    <div className="grid md:grid-cols-4 gap-8">
+                        <div className="col-span-2">
+                            <div className="flex items-center gap-3 mb-6 text-white">
+                                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-bold">
+                                    {appName[0]}
+                                </div>
+                                <span className="font-bold text-xl uppercase">{appName} {schoolName}</span>
+                            </div>
+                            <p className="text-sm mb-6 max-w-md">
+                                {footerDesc}
+                            </p>
+                        </div>
+                        <div>
+                            <h4 className="text-white font-bold mb-4">Kontak Panitia</h4>
+                            <ul className="space-y-3 text-sm">
+                                <li className="flex items-center gap-3"><Phone size={16} /> {contactWA} (WA Only)</li>
+                                <li className="flex items-center gap-3"><Phone size={16} /> {contactOffice} (Kantor)</li>
+                                <li className="flex items-center gap-3"><Mail size={16} /> {contactEmail}</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="text-white font-bold mb-4">Lokasi Sekolah</h4>
+                            <p className="text-sm mb-4">{schoolAddress}</p>
+                            <a href={mapsLink} target="_blank" rel="noreferrer" className="text-blue-500 text-sm font-bold hover:underline">Lihat di Google Maps</a>
+                        </div>
+                    </div>
+                    <div className="border-t border-slate-800 mt-12 pt-8 text-center text-sm">
+                        {footerCopyright}
+                    </div>
+                </div>
             </footer>
         </div>
     );
