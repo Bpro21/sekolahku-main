@@ -54,14 +54,14 @@ serve(async (req) => {
             ? 'https://app.midtrans.com/snap/v1/transactions'
             : 'https://app.sandbox.midtrans.com/snap/v1/transactions'
 
-        const authHeader = btoa(`${config.midtrans_server_key}:`)
+        const midtransAuthHeader = btoa(`${config.midtrans_server_key}:`)
 
         const response = await fetch(snapUrl, {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'Authorization': `Basic ${authHeader}`
+                'Authorization': `Basic ${midtransAuthHeader}`
             },
             body: JSON.stringify({
                 transaction_details: {
