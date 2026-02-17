@@ -8,8 +8,9 @@ const EDGE_FUNCTION_URL = 'https://uxqpcizthigbddcbjndi.supabase.co/functions/v1
 export const MidtransService = {
     async getSnapToken(invoice) {
         try {
+            const { data: { user } } = await supabase.auth.getUser();
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error("Silakan login kembali.");
+            if (!user || !session) throw new Error("Silakan login kembali.");
 
             const response = await fetch(EDGE_FUNCTION_URL, {
                 method: 'POST',

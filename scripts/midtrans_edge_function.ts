@@ -17,15 +17,23 @@ serve(async (req) => {
     }
 
     try {
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: corsHeaders })
+        }
+
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+            { global: { headers: { Authorization: authHeader } } }
         )
 
         // 1. Verify user is logged in
         const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+        if (authError || !user) {
+            console.error('Auth Error:', authError)
+            return new Response(JSON.stringify({ error: 'Unauthorized or Invalid JWT', details: authError?.message }), { status: 401, headers: corsHeaders })
+        }
 
         // 2. Get Midtrans Config from database (SAFE because it's on server)
         const { data: config, error: configError } = await supabase
