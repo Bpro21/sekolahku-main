@@ -68,7 +68,9 @@ serve(async (req) => {
             },
             body: JSON.stringify({
                 transaction_details: {
-                    order_id: `${order_id}-${Date.now()}`, // Append timestamp to avoid duplicate order ID error during testing
+                    // Midtrans order_id limit is 50 chars. 
+                    // Use shortened UUID + timestamp to ensure uniqueness for retries.
+                    order_id: `${order_id.substring(0, 20)}-${Math.floor(Date.now() / 1000)}`,
                     gross_amount: gross_amount
                 },
                 item_details,
