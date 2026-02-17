@@ -304,9 +304,20 @@ export default function PaymentHistory({ user, showToast }) {
                 }
             } catch (err) {
                 console.error("Real Snap Error:", err);
-                showToast(err.message, 'error');
-                // Fallback to Mock if in Sandbox
+
+                // Detailed error for CORS/Network vs API errors
+                let errMsg = err.message;
+                if (err.message.includes('Failed to fetch')) {
+                    errMsg = "Gagal terhubung ke Server Token (CORS/Network Error). Pastikan Edge Function sudah dideploy.";
+                }
+
+                showToast(errMsg, 'error');
+
+                // Fallback to Mock if in Sandbox, but with a warning
                 if (payConfig.midtrans_mode === 'sandbox') {
+                    console.warn("Falling back to Internal Simulator due to error.");
+                    // Only open if the user hasn't seen the error toast yet or as a choice? 
+                    // For now, let's still open but inform them.
                     setActiveInvoice(inv);
                 }
             }
