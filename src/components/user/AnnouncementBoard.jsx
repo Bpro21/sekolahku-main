@@ -73,7 +73,7 @@ export default function AnnouncementBoard({ user }) {
         // Fetch settings
         const fetchSettings = async () => {
             const { data } = await supabase
-                .from('settings')
+                .from('app_settings')
                 .select('*')
                 .eq('id', 'main')
                 .single();
