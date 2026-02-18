@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate, useLocation, Navigate, Outlet, Routes, Route } from 'react-router-dom';
 import { supabase } from './config/supabase';
 
@@ -15,56 +15,68 @@ import { Toast, Modal } from './components/ui/Overlays';
 import { NavItem } from './components/ui/Elements';
 import Header from './components/layout/Header';
 
-// User Components
+// Critical components (always needed) - eager imports
 import ErrorBoundary from './classes/ErrorBoundary';
-
 import AuthScreen from './components/auth/AuthScreen';
-import VisitorLogger from './components/VisitorLogger';
-import UserDashboard from './components/user/UserDashboard';
-import RegistrationWizard from './components/user/RegistrationWizard';
-import StudentManager from './components/user/StudentManager';
-import PsychotestModule from './components/user/PsychotestModule';
-import AnnouncementBoard from './components/user/AnnouncementBoard';
-import PaymentHistory from './components/user/PaymentHistory';
-import UserProfile from './components/user/UserProfile';
 
-// Public Components
+// Public Components - eager (needed for homepage SEO & fast load)
 import SchoolWebsite from './components/public/SchoolWebsite.jsx';
-import GuidePage from './components/public/GuidePage.jsx';
 import NotFound from './components/public/NotFound.jsx';
 
-// Admin Components
-import AdminDashboard from './components/admin/AdminDashboard';
-import AdminAgreements from './components/admin/AdminAgreements';
-import AdminStudentReport from './components/admin/AdminStudentReport';
-import AdminVerification from './components/admin/AdminVerification';
-import AdminIndentVerification from './components/admin/AdminIndentVerification';
-import AdminPaymentApproval from './components/admin/AdminPaymentApproval';
-import AdminDataRequests from './components/admin/AdminDataRequests';
-import AdminFinanceDashboard from './components/admin/AdminFinanceDashboard';
-import AdminFollowUp from './components/admin/AdminFollowUp';
-import AdminResignation from './components/admin/AdminResignation';
-import AdminTransferManager from './components/admin/AdminTransferManager';
-import AdminInterviewManager from './components/admin/AdminInterviewManager';
-import AdminScoring from './components/admin/AdminScoring';
-import AdminRanking from './components/admin/AdminRanking';
-import AdminSchoolSettings from './components/admin/AdminSchoolSettings';
-import AdminTestSettings from './components/admin/AdminTestSettings';
-import AdminPaymentSettings from './components/admin/AdminPaymentSettings';
-import AdminAppSettings from './components/admin/AdminAppSettings';
-import AdminWebsiteSettings from './components/admin/AdminWebsiteSettings';
-import AdminVoucherManager from './components/admin/AdminVoucherManager';
-import AdminTestRecap from './components/admin/AdminTestRecap';
-import AdminReregistration from './components/admin/AdminReregistration';
-import AdminStudentData from './components/admin/AdminStudentData';
-import AdminQuotaMonitoring from './components/admin/AdminQuotaMonitoring';
-import AdminQuotaRemaining from './components/admin/AdminQuotaRemaining';
-import AdminDemographics from './components/admin/AdminDemographics';
-import AdminSystemLogs from './components/admin/AdminSystemLogs';
-import AdminMarketingTools from './components/admin/AdminMarketingTools';
-import AdminCRM from './components/admin/AdminCRM';
-import AdminUserManager from './components/admin/AdminUserManager';
-import AdminBackup from './components/admin/AdminBackup';
+// Page skeleton for Suspense fallback
+const PageSkeleton = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Memuat...</p>
+    </div>
+  </div>
+);
+
+// Lazy-loaded components (downloaded only when navigated to)
+const GuidePage = lazy(() => import('./components/public/GuidePage.jsx'));
+
+// User Components - lazy
+const UserDashboard = lazy(() => import('./components/user/UserDashboard'));
+const RegistrationWizard = lazy(() => import('./components/user/RegistrationWizard'));
+const StudentManager = lazy(() => import('./components/user/StudentManager'));
+const PsychotestModule = lazy(() => import('./components/user/PsychotestModule'));
+const AnnouncementBoard = lazy(() => import('./components/user/AnnouncementBoard'));
+const PaymentHistory = lazy(() => import('./components/user/PaymentHistory'));
+const UserProfile = lazy(() => import('./components/user/UserProfile'));
+
+// Admin Components - lazy (heaviest, never needed on public pages)
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+const AdminAgreements = lazy(() => import('./components/admin/AdminAgreements'));
+const AdminStudentReport = lazy(() => import('./components/admin/AdminStudentReport'));
+const AdminVerification = lazy(() => import('./components/admin/AdminVerification'));
+const AdminIndentVerification = lazy(() => import('./components/admin/AdminIndentVerification'));
+const AdminPaymentApproval = lazy(() => import('./components/admin/AdminPaymentApproval'));
+const AdminDataRequests = lazy(() => import('./components/admin/AdminDataRequests'));
+const AdminFinanceDashboard = lazy(() => import('./components/admin/AdminFinanceDashboard'));
+const AdminFollowUp = lazy(() => import('./components/admin/AdminFollowUp'));
+const AdminResignation = lazy(() => import('./components/admin/AdminResignation'));
+const AdminTransferManager = lazy(() => import('./components/admin/AdminTransferManager'));
+const AdminInterviewManager = lazy(() => import('./components/admin/AdminInterviewManager'));
+const AdminScoring = lazy(() => import('./components/admin/AdminScoring'));
+const AdminRanking = lazy(() => import('./components/admin/AdminRanking'));
+const AdminSchoolSettings = lazy(() => import('./components/admin/AdminSchoolSettings'));
+const AdminTestSettings = lazy(() => import('./components/admin/AdminTestSettings'));
+const AdminPaymentSettings = lazy(() => import('./components/admin/AdminPaymentSettings'));
+const AdminAppSettings = lazy(() => import('./components/admin/AdminAppSettings'));
+const AdminWebsiteSettings = lazy(() => import('./components/admin/AdminWebsiteSettings'));
+const AdminVoucherManager = lazy(() => import('./components/admin/AdminVoucherManager'));
+const AdminTestRecap = lazy(() => import('./components/admin/AdminTestRecap'));
+const AdminReregistration = lazy(() => import('./components/admin/AdminReregistration'));
+const AdminStudentData = lazy(() => import('./components/admin/AdminStudentData'));
+const AdminQuotaMonitoring = lazy(() => import('./components/admin/AdminQuotaMonitoring'));
+const AdminQuotaRemaining = lazy(() => import('./components/admin/AdminQuotaRemaining'));
+const AdminDemographics = lazy(() => import('./components/admin/AdminDemographics'));
+const AdminSystemLogs = lazy(() => import('./components/admin/AdminSystemLogs'));
+const AdminMarketingTools = lazy(() => import('./components/admin/AdminMarketingTools'));
+const AdminCRM = lazy(() => import('./components/admin/AdminCRM'));
+const AdminUserManager = lazy(() => import('./components/admin/AdminUserManager'));
+const AdminBackup = lazy(() => import('./components/admin/AdminBackup'));
 
 const TAB_TO_PATH = {
   // User
@@ -499,7 +511,7 @@ fbq('track', 'PageView');`;
       <Routes>
         <Route path="/" element={<ErrorBoundary><SchoolWebsite user={user} isAdmin={isAdmin} onLogin={() => navigate('/login')} onDashboard={() => navigate(isAdmin ? '/admin' : '/dashboard')} /></ErrorBoundary>} />
         <Route path="/login" element={!user ? <ErrorBoundary><AuthScreen showToast={showToast} onBack={() => navigate('/')} /></ErrorBoundary> : <Navigate to={isAdmin ? '/admin' : '/dashboard'} />} />
-        <Route path="/panduan" element={<GuidePage user={user} isAdmin={isAdmin} />} />
+        <Route path="/panduan" element={<Suspense fallback={<PageSkeleton />}><GuidePage user={user} isAdmin={isAdmin} /></Suspense>} />
 
         <Route element={user ? (
           <>
@@ -625,7 +637,9 @@ fbq('track', 'PageView');`;
               )}
               <main className={`flex-1 overflow-y-auto w-full max-w-[100vw] ${['/', '/panduan', '/login'].includes(location.pathname) ? '' : 'p-4 md:p-8 bg-slate-50/50 pb-32 md:pb-8'}`}>
                 <ErrorBoundary>
-                  <Outlet />
+                  <Suspense fallback={<PageSkeleton />}>
+                    <Outlet />
+                  </Suspense>
                 </ErrorBoundary>
               </main>
 

@@ -63,9 +63,9 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                         <span className="flex items-center gap-2"><Mail size={14} /> {contactEmail}</span>
                     </div>
                     <div className="flex space-x-4">
-                        <a href="#" className="hover:text-blue-300 transition"><Facebook size={16} /></a>
-                        <a href="#" className="hover:text-blue-300 transition"><Instagram size={16} /></a>
-                        <a href="#" className="hover:text-blue-300 transition"><Twitter size={16} /></a>
+                        <a href="#" className="hover:text-blue-300 transition" aria-label="Facebook"><Facebook size={16} /></a>
+                        <a href="#" className="hover:text-blue-300 transition" aria-label="Instagram"><Instagram size={16} /></a>
+                        <a href="#" className="hover:text-blue-300 transition" aria-label="Twitter"><Twitter size={16} /></a>
                     </div>
                 </div>
             </div>
@@ -78,6 +78,8 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                         <div
                             className="flex items-center gap-3 cursor-pointer group"
                             onClick={() => navigate('/')}
+                            role="button"
+                            aria-label="Kembali ke Beranda"
                         >
                             {settings?.app_logo ? (
                                 <img src={settings.app_logo} alt="Logo" className="w-10 h-10 rounded-lg object-contain bg-white group-hover:scale-105 transition" />
@@ -99,6 +101,7 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                                     key={link.name}
                                     onClick={() => scrollToSection(link.href)}
                                     className={`font-medium hover:text-yellow-400 transition ${!scrolled && location.pathname === '/' ? 'text-white' : 'text-gray-700'}`}
+                                    aria-label={`Navigasi ke ${link.name}`}
                                 >
                                     {link.name}
                                 </button>
@@ -107,6 +110,7 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                                 <button
                                     onClick={() => user ? navigate(isAdmin ? '/admin' : '/dashboard') : navigate('/login')}
                                     className={`bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-6 py-2 rounded-full font-bold transition shadow-lg transform hover:scale-105 flex items-center gap-2`}
+                                    aria-label={user ? 'Buka Dashboard' : 'Login atau Daftar'}
                                 >
                                     {user ? <LayoutDashboard size={18} /> : <LogIn size={18} />}
                                     {user ? 'Dashboard' : 'Login / Daftar'}
@@ -129,6 +133,7 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                     <button
                         onClick={() => user ? navigate(isAdmin ? '/admin' : '/dashboard') : navigate('/login')}
                         className="text-blue-600 font-bold text-sm bg-blue-50 px-3 py-1.5 rounded-full flex items-center gap-1"
+                        aria-label={user ? 'Buka Dashboard' : 'Login atau Daftar'}
                     >
                         {user ? <LayoutDashboard size={14} /> : <LogIn size={14} />}
                         {user ? 'Dashboard' : 'Login / Daftar'}

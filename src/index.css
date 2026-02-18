@@ -210,3 +210,18 @@ html {
 ::selection {
   @apply bg-blue-500 text-white;
 }
+
+/* Performance: skip rendering cost for off-screen sections */
+section {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Hide scrollbar for program slider */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

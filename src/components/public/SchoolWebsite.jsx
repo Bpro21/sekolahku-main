@@ -31,7 +31,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     const [academicYears, setAcademicYears] = useState([]);
     const [activeAcademicYear, setActiveAcademicYear] = useState(null);
     const [showPopup, setShowPopup] = useState(false);
-    const [loading, setLoading] = useState(true); // Added loading state
+    const [loading, setLoading] = useState(false); // No blocking spinner - render immediately
 
     // Fetch Settings & APIs & Realtime Data (SUPABASE)
     useEffect(() => {
@@ -399,6 +399,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <button
                         onClick={() => scrollToSection('#home')}
                         className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'home' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                        aria-label="Navigasi ke Beranda"
                     >
                         <Home size={24} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
                         <span className="text-[10px] font-bold">Home</span>
@@ -407,6 +408,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <button
                         onClick={() => scrollToSection('#flow')}
                         className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'flow' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                        aria-label="Navigasi ke Alur Pendaftaran"
                     >
                         <FileText size={24} strokeWidth={activeTab === 'flow' ? 2.5 : 2} />
                         <span className="text-[10px] font-bold">Alur</span>
@@ -429,6 +431,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <button
                         onClick={() => scrollToSection('#programs')}
                         className={`flex flex-col items-center gap-1 transition-all duration-300 ${activeTab === 'programs' ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                        aria-label="Navigasi ke Program Studi"
                     >
                         <BookOpen size={24} strokeWidth={activeTab === 'programs' ? 2.5 : 2} />
                         <span className="text-[10px] font-bold">Jurusan</span>
@@ -437,6 +440,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <button
                         onClick={() => setIsMenuOpen(true)}
                         className={`flex flex-col items-center gap-1 transition-all duration-300 ${isMenuOpen ? 'text-emerald-600 scale-105' : 'text-slate-400 hover:text-slate-600'}`}
+                        aria-label="Buka Menu"
                     >
                         <Grid size={24} strokeWidth={isMenuOpen ? 2.5 : 2} />
                         <span className="text-[10px] font-bold">Menu</span>
@@ -455,6 +459,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                             <button
                                 onClick={() => setIsPPDBOpen(false)}
                                 className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-1 rounded-full text-white transition z-20"
+                                aria-label="Tutup Formulir"
                             >
                                 <X size={20} />
                             </button>
@@ -540,7 +545,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <div className="flex flex-col h-full">
                         <div className="flex justify-between items-center p-6 border-b">
                             <span className="font-bold text-xl text-gray-900">Menu PPDB</span>
-                            <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+                            <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200" aria-label="Tutup Menu">
                                 <X size={24} />
                             </button>
                         </div>
@@ -588,9 +593,13 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             <header id="home" className="relative h-screen min-h-[600px] flex items-center -mt-20 md:-mt-24">
                 <div className="absolute inset-0 z-0">
                     <img
-                        src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"}
-                        alt="School Building"
+                        src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&q=75"}
+                        alt="Gedung Sekolah"
                         className="w-full h-full object-cover"
+                        fetchPriority="high"
+                        decoding="sync"
+                        width="1280"
+                        height="720"
                     />
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/80 to-blue-900/40"></div>
                 </div>
@@ -655,7 +664,14 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                             <div className="flex -space-x-2">
                                 {[1, 2, 3, 4].map(i => (
                                     <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-blue-900 overflow-hidden">
-                                        <img src={`https://i.pravatar.cc/100?img=${i + 10}`} alt="Avatar" />
+                                        <img
+                                            src={`https://i.pravatar.cc/100?img=${i + 10}`}
+                                            alt={`Avatar Pendaftar ${i}`}
+                                            loading="lazy"
+                                            decoding="async"
+                                            width="32"
+                                            height="32"
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -739,7 +755,15 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                             >
                                 <div className="h-48 overflow-hidden relative">
                                     <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition z-10"></div>
-                                    <img src={prog.img} alt={prog.title} className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700" />
+                                    <img
+                                        src={prog.img}
+                                        alt={prog.title}
+                                        className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700"
+                                        loading="lazy"
+                                        decoding="async"
+                                        width="400"
+                                        height="300"
+                                    />
                                 </div>
                                 <div className="p-8">
                                     <h3 className="text-xl font-bold text-gray-900 mb-3">{prog.title}</h3>
@@ -788,6 +812,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                             <button
                                 onClick={() => setSelectedProgram(null)}
                                 className="absolute top-6 right-6 bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition backdrop-blur-sm z-20"
+                                aria-label="Tutup Detail"
                             >
                                 <X size={24} />
                             </button>
@@ -1338,6 +1363,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         <button
                             onClick={() => setShowPopup(false)}
                             className="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full shadow-xl flex items-center justify-center text-gray-600 hover:text-red-500 hover:bg-red-50 transition-all z-10 border border-gray-200"
+                            aria-label="Tutup Promo"
                         >
                             <X size={24} />
                         </button>
@@ -1361,6 +1387,8 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                 src={settings.landing_page.popup_image}
                                 alt="Promo Banner"
                                 className="w-full rounded-2xl shadow-2xl"
+                                loading="lazy"
+                                decoding="async"
                             />
                         )}
                     </div>
