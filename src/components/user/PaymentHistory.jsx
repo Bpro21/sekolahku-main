@@ -37,6 +37,26 @@ export default function PaymentHistory({ user, showToast }) {
     const [calculating, setCalculating] = useState(false);
     const [verifying, setVerifying] = useState(false);
 
+    const formatPaymentMethod = (method) => {
+        if (!method) return 'Manual Transfer';
+        if (method === 'Manual') return 'Manual Transfer';
+
+        // Clean up Midtrans technical strings
+        let clean = method.replace('Midtrans (', 'Midtrans ');
+        clean = clean.replace(')', '');
+        clean = clean.replace(/_/g, ' ');
+
+        // Custom mappings
+        if (clean.toLowerCase().includes('bank transfer')) {
+            clean = clean.replace(/bank transfer/i, 'Virtual Account');
+        }
+
+        // Title Case
+        return clean.split(' ').map(word =>
+            word.length <= 3 ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+    };
+
     const handleDownloadPDF = async () => {
         try {
             const html2canvas = (await import('html2canvas')).default;
@@ -724,7 +744,7 @@ export default function PaymentHistory({ user, showToast }) {
                                     <h4 className="font-bold text-slate-800 text-lg">Rp {inv.amount.toLocaleString()}</h4>
                                     <p className="font-medium text-slate-600 text-sm">{inv.description}</p>
                                     <p className="text-xs text-slate-400 mt-1">{inv.student_name} • {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</p>
-                                    {inv.payment_method && <span className="text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded text-indigo-600 mt-2 inline-block font-medium">{inv.payment_method}</span>}
+                                    {inv.payment_method && <span className="text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded text-indigo-600 mt-2 inline-block font-medium">{formatPaymentMethod(inv.payment_method)}</span>}
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2 w-full md:w-auto">
@@ -996,7 +1016,7 @@ export default function PaymentHistory({ user, showToast }) {
                                 <div>
                                     <h4 className="font-bold text-slate-800 text-sm mb-2">Metode Pembayaran:</h4>
                                     <div className="p-3 border border-slate-200 rounded text-sm text-slate-600 bg-slate-50 mb-6">
-                                        <p>{viewInvoice.payment_method || 'Manual Transfer'}</p>
+                                        <p>{formatPaymentMethod(viewInvoice.payment_method)}</p>
                                         {viewInvoice.bank_destination && !viewInvoice.payment_method?.toLowerCase().includes('midtrans') && (
                                             <p className="font-mono text-xs mt-1">{viewInvoice.bank_destination}</p>
                                         )}
