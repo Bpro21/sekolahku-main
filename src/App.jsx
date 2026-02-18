@@ -311,6 +311,19 @@ export default function App() {
           }
           if (seo.keywords) metaKeywords.content = seo.keywords;
 
+          // Google Search Console Verification
+          if (seo.google_verification) {
+            let metaGoogle = document.querySelector('meta[name="google-site-verification"]');
+            if (!metaGoogle) {
+              metaGoogle = document.createElement('meta');
+              metaGoogle.name = "google-site-verification";
+              document.head.appendChild(metaGoogle);
+            }
+            // Extract content if user pasted full tag (e.g. <meta name="..." content="XYZ" />)
+            const contentMatch = seo.google_verification.match(/content="([^"]+)"/);
+            metaGoogle.content = contentMatch ? contentMatch[1] : seo.google_verification;
+          }
+
           if (seo.gtm_id && !document.getElementById('gtm_script')) {
             const script = document.createElement('script');
             script.id = 'gtm_script';

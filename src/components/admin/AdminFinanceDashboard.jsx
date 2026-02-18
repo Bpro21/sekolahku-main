@@ -83,8 +83,12 @@ export default function AdminFinanceDashboard() {
         // 2. Linked Registration Match
         const reg = regMap[i.registration_id];
         if (reg) {
-            // Check direct reg AY
+            // Find target AY object from selected ID
+            const targetAy = academicYears.find(ay => ay.id === selectedYear);
+
+            // Check direct reg AY (Support both UUID and Name match)
             if (reg.academic_year === selectedYear) return true;
+            if (targetAy && reg.academic_year === targetAy.year) return true;
 
             // Check via Wave
             if (reg.wave_id) {
@@ -95,7 +99,6 @@ export default function AdminFinanceDashboard() {
 
                 // Fallback: If wave.year is string name "2025/2026", match with ay.year name
                 if (wave?.year && !waveAY?.includes('uuid') && academicYears.length > 0) {
-                    const targetAy = academicYears.find(ay => ay.id === selectedYear);
                     if (targetAy && wave.year === targetAy.year) return true;
                 }
             }

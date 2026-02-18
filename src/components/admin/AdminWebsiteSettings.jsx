@@ -18,7 +18,8 @@ export default function AdminWebsiteSettings({ showToast }) {
             description: '',
             keywords: '',
             gtm_id: '',
-            pixel_id: ''
+            pixel_id: '',
+            google_verification: ''
         },
         landing_page: {
             announcement_bar: '',
@@ -90,7 +91,14 @@ export default function AdminWebsiteSettings({ showToast }) {
                 }
 
                 if (data) {
-                    setSettings(prev => ({ ...prev, ...data }));
+                    setSettings(prev => ({
+                        ...prev,
+                        ...data,
+                        // Ensure SEO is extracted from landing_page if not at top level (which it isn't in schema)
+                        seo: data.landing_page?.seo || prev.seo,
+                        // Ensure nested structures are preserved if partial updates happen
+                        landing_page: data.landing_page || prev.landing_page
+                    }));
                 }
             } catch (e) {
                 console.error("Failed to fetch settings", e);
@@ -163,9 +171,20 @@ export default function AdminWebsiteSettings({ showToast }) {
     const saveSettings = async () => {
         setLoading(true);
         try {
+            // Merge SEO back into landing_page before saving
+            const payload = {
+                ...settings,
+                landing_page: {
+                    ...settings.landing_page,
+                    seo: settings.seo
+                }
+            };
+            // Remove top-level seo key as it is not a column
+            delete payload.seo;
+
             const { error } = await supabase
                 .from('app_settings')
-                .upsert({ id: 'main', ...settings });
+                .upsert({ id: 'main', ...payload });
 
             if (error) throw error;
 
@@ -560,6 +579,13 @@ export default function AdminWebsiteSettings({ showToast }) {
                                         onChange={e => handleSeoChange('pixel_id', e.target.value)}
                                         placeholder="123456789012345"
                                         helperText="Masukkan Pixel ID untuk tracking iklan Facebook/Instagram"
+                                    />
+                                    <Input
+                                        label="Google Site Verification"
+                                        value={settings.seo?.google_verification || ''}
+                                        onChange={e => handleSeoChange('google_verification', e.target.value)}
+                                        placeholder="google-site-verification=..."
+                                        helperText="Kode verifikasi dari Google Search Console (HTML Tag)"
                                     />
                                 </div>
                             </Card>
