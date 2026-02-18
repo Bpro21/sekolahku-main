@@ -94,10 +94,10 @@ export default function AdminWebsiteSettings({ showToast }) {
                     setSettings(prev => ({
                         ...prev,
                         ...data,
-                        // Ensure SEO is extracted from landing_page if not at top level (which it isn't in schema)
-                        seo: data.landing_page?.seo || prev.seo,
-                        // Ensure nested structures are preserved if partial updates happen
-                        landing_page: data.landing_page || prev.landing_page
+                        // Ensure nested structures are deeply merged to preserve keys not in DB
+                        seo: data.landing_page?.seo ? { ...prev.seo, ...data.landing_page.seo } : prev.seo,
+                        landing_page: data.landing_page ? { ...prev.landing_page, ...data.landing_page } : prev.landing_page,
+                        ai_assistant: data.ai_assistant ? { ...prev.ai_assistant, ...data.ai_assistant } : prev.ai_assistant
                     }));
                 }
             } catch (e) {
@@ -202,12 +202,12 @@ export default function AdminWebsiteSettings({ showToast }) {
                 ...currentCache,
                 settings: {
                     ...currentCache.settings,
-                    ...newAppSettings
+                    ...payload
                 }
             }));
 
-            // Dispatch Event for Real-time Update
-            window.dispatchEvent(new CustomEvent('app-settings-updated', { detail: newAppSettings }));
+            // Dispatch Event for Real-time Update (Full Payload)
+            window.dispatchEvent(new CustomEvent('app-settings-updated', { detail: payload }));
 
             showToast('Semua perubahan berhasil disimpan!');
         } catch (error) {

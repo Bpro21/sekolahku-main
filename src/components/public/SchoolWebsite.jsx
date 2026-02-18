@@ -186,7 +186,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
         return () => subscription.unsubscribe();
     }, []);
 
-    // Handle scroll effect for navbar
+    // Handle scroll effect for navbar and real-time settings updates
     useEffect(() => {
         const handleScroll = () => {
             if (window.scrollY > 20) {
@@ -196,7 +196,23 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             }
         };
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+
+        // Real-time Update Listener from Admin
+        const handleSettingsUpdate = (e) => {
+            if (e.detail) {
+                setSettings(prev => ({
+                    ...prev,
+                    ...e.detail
+                }));
+            }
+        };
+
+        window.addEventListener('app-settings-updated', handleSettingsUpdate);
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('app-settings-updated', handleSettingsUpdate);
+        };
     }, []);
 
     // Handle popup display
@@ -663,7 +679,9 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                         </span>
                                     </>
                                 ) : (
-                                    settings?.landing_page?.hero_title || ''
+                                    <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
+                                        {settings?.landing_page?.hero_title || ''}
+                                    </span>
                                 )}
                             </h1>
 
