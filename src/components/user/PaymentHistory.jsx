@@ -997,7 +997,9 @@ export default function PaymentHistory({ user, showToast }) {
                                     <h4 className="font-bold text-slate-800 text-sm mb-2">Metode Pembayaran:</h4>
                                     <div className="p-3 border border-slate-200 rounded text-sm text-slate-600 bg-slate-50 mb-6">
                                         <p>{viewInvoice.payment_method || 'Manual Transfer'}</p>
-                                        {viewInvoice.bank_destination && <p className="font-mono text-xs mt-1">{viewInvoice.bank_destination}</p>}
+                                        {viewInvoice.bank_destination && !viewInvoice.payment_method?.toLowerCase().includes('midtrans') && (
+                                            <p className="font-mono text-xs mt-1">{viewInvoice.bank_destination}</p>
+                                        )}
                                     </div>
                                     <div className="text-xs text-slate-400 leading-relaxed font-serif">
                                         {settings.invoice_footer_note || 'Bukti pembayaran ini adalah dokumen sah yang diterbitkan sistem komputerisasi.'}

@@ -126,7 +126,8 @@ serve(async (req) => {
                     status: 'paid',
                     paid_at: new Date().toISOString(),
                     payment_method: `Midtrans (${payment_type})`,
-                    transaction_id: transaction_id
+                    transaction_id: transaction_id,
+                    bank_destination: null // Clear manual bank if paid via Midtrans
                 }).eq('id', inv.id)
 
                 if (updateError) {
