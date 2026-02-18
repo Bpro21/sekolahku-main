@@ -48,10 +48,10 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
         { name: 'Kontak', href: '#contact', icon: Phone },
     ];
 
-    const contactOffice = settings?.landing_page?.contact_office || '(021) 7788-9900';
-    const contactEmail = settings?.landing_page?.contact_email || 'ppdb@cendekia.sch.id';
-    const appName = settings?.app_name || 'PPDB Online';
-    const schoolName = settings?.school_name || 'Sekolah Islam Terpadu Cendekia';
+    const contactOffice = settings?.landing_page?.contact_office || '';
+    const contactEmail = settings?.landing_page?.contact_email || '';
+    const appName = settings?.app_name || '';
+    const schoolName = settings?.school_name || '';
 
     return (
         <>

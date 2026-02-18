@@ -203,8 +203,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [appSettings, setAppSettings] = useState({
-    app_name: 'PSB Online',
-    app_version: 'v1.0 Beta',
+    app_name: '',
+    app_version: '',
     app_logo: '',
     app_template: 'berry'
   });
@@ -290,8 +290,8 @@ export default function App() {
 
         if (data) {
           const settings = {
-            app_name: data.app_name || 'PSB Online',
-            app_version: data.app_version || 'v1.0 Beta',
+            app_name: data.app_name || '',
+            app_version: data.app_version || '',
             app_logo: data.app_logo || '',
             app_template: data.app_template || 'berry'
           };

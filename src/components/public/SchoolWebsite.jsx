@@ -11,6 +11,49 @@ import { supabase } from '../../config/supabase';
 import PublicHeader from './PublicHeader';
 
 const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
+    // Skeleton Components for Loading States
+    const HeroSkeleton = () => (
+        <div className="relative h-screen min-h-[600px] flex items-center bg-slate-900 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800 animate-pulse" />
+            <div className="container mx-auto px-4 relative z-10 pt-20">
+                <div className="max-w-3xl md:pl-4">
+                    <div className="w-64 h-10 bg-slate-800 rounded-full mb-6 animate-pulse" />
+                    <div className="w-full h-20 bg-slate-800 rounded-xl mb-6 animate-pulse" />
+                    <div className="w-3/4 h-20 bg-slate-800 rounded-xl mb-6 animate-pulse" />
+                    <div className="w-full h-12 bg-slate-800 rounded-xl mb-8 animate-pulse" />
+                    <div className="flex gap-4">
+                        <div className="w-48 h-14 bg-slate-800 rounded-full animate-pulse" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const StatsSkeleton = () => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 container mx-auto px-4 -mt-16 relative z-20">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white p-6 rounded-2xl shadow-xl h-32 animate-pulse flex flex-col items-center justify-center gap-2">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg" />
+                    <div className="w-16 h-4 bg-slate-100 rounded" />
+                </div>
+            ))}
+        </div>
+    );
+
+    const ProgramsSkeleton = () => (
+        <div className="container mx-auto px-4 py-20">
+            <div className="text-center mb-16">
+                <div className="w-32 h-6 bg-slate-100 mx-auto rounded mb-4 animate-pulse" />
+                <div className="w-64 h-10 bg-slate-100 mx-auto rounded animate-pulse" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="aspect-[4/5] rounded-3xl bg-slate-100 animate-pulse" />
+                ))}
+            </div>
+        </div>
+    );
+
     const navigate = useNavigate();
     const [user, setUser] = useState(propUser || null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -203,28 +246,27 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     ];
 
     // Using settings or defaults
-    // Using settings or defaults
-    const contactWA = settings?.landing_page?.contact_wa || '0812-3456-7890';
-    const contactOffice = settings?.landing_page?.contact_office || '(021) 7788-9900';
-    const contactEmail = settings?.landing_page?.contact_email || 'ppdb@cendekia.sch.id';
-    const schoolAddress = settings?.landing_page?.address || 'Jl. Pendidikan No. 123, Komplek Pelajar, Kota Harapan, Indonesia 12345';
+    const contactWA = settings?.landing_page?.contact_wa || '';
+    const contactOffice = settings?.landing_page?.contact_office || '';
+    const contactEmail = settings?.landing_page?.contact_email || '';
+    const schoolAddress = settings?.landing_page?.address || '';
     const mapsLink = settings?.landing_page?.maps_link || '#';
 
     // School Name variables
-    const schoolName = settings?.school_name || 'Sekolah Islam Terpadu Cendekia';
-    const appName = settings?.app_name || 'PPDB Online';
+    const schoolName = settings?.school_name || '';
+    const appName = settings?.app_name || '';
 
-    const footerDesc = settings?.landing_page?.footer_desc || `Panitia Penerimaan Peserta Didik Baru ${schoolName} Tahun Ajaran 2025/2026. Melayani dengan sepenuh hati untuk masa depan pendidikan Indonesia.`;
-    const footerCopyright = settings?.landing_page?.footer_copyright || `© 2025 Panitia PPDB ${schoolName}. All rights reserved.`;
+    const footerDesc = settings?.landing_page?.footer_desc || '';
+    const footerCopyright = settings?.landing_page?.footer_copyright || '';
 
 
 
     // Statistik difokuskan pada urgensi & kualitas
     const statistics = [
-        { icon: Users, count: '1200+', label: 'Siswa' },
-        { icon: GraduationCap, count: '85+', label: 'Guru & Staff' },
-        { icon: BookOpen, count: '15+', label: 'Ekstrakurikuler' },
-        { icon: Trophy, count: '50+', label: 'Penghargaan' },
+        { icon: Users, count: '...', label: 'Siswa' },
+        { icon: GraduationCap, count: '...', label: 'Guru & Staff' },
+        { icon: BookOpen, count: '...', label: 'Ekstrakurikuler' },
+        { icon: Trophy, count: '...', label: 'Penghargaan' },
     ];
 
     const steps = [
@@ -235,11 +277,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
         { title: "Pengumuman", desc: "Hasil seleksi diumumkan via WhatsApp & Email." },
     ];
 
-    const defaultPrograms = [
-        { title: "Science Class (IPA)", desc: "Fokus pada penguatan sains, teknologi, dan persiapan olimpiade.", img: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "Social Class (IPS)", desc: "Pengembangan kepemimpinan, entrepreneurship, dan ilmu sosial.", img: "https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-        { title: "Digital Class", desc: "Kelas khusus coding, desain grafis, dan digital marketing.", img: "https://images.unsplash.com/photo-1531482615713-2afd69097998?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80" },
-    ];
+    const defaultPrograms = [];
 
     const programsList = (settings?.landing_page?.programs && settings.landing_page.programs.length > 0)
         ? settings.landing_page.programs
@@ -590,113 +628,108 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             )}
 
             {/* Hero Section */}
-            <header id="home" className="relative h-screen min-h-[600px] flex items-center -mt-20 md:-mt-24">
-                <div className="absolute inset-0 z-0">
-                    <img
-                        src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&q=75"}
-                        alt="Gedung Sekolah"
-                        className="w-full h-full object-cover"
-                        fetchPriority="high"
-                        decoding="sync"
-                        width="1280"
-                        height="720"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/80 to-blue-900/40"></div>
-                </div>
+            {!settings ? <HeroSkeleton /> : (
+                <header id="home" className="relative h-screen min-h-[600px] flex items-center -mt-20 md:-mt-24">
+                    <div className="absolute inset-0 z-0">
+                        <img
+                            src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&q=75"}
+                            alt="Gedung Sekolah"
+                            className="w-full h-full object-cover"
+                            fetchPriority="high"
+                            decoding="sync"
+                            width="1280"
+                            height="720"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/80 to-blue-900/40"></div>
+                    </div>
 
-                <div className="container mx-auto px-4 relative z-10 text-white pt-20">
-                    <div className="max-w-3xl animate-fade-in-up md:pl-4">
-                        <div className="inline-flex items-center gap-2 bg-yellow-500/20 border border-yellow-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
-                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                            <span className="text-yellow-300 text-sm font-bold tracking-wide uppercase">
-                                {settings?.landing_page?.hero_badge || 'Pendaftaran TA 2025/2026 Dibuka'}
-                            </span>
-                        </div>
+                    <div className="container mx-auto px-4 relative z-10 text-white pt-20">
+                        <div className="max-w-3xl animate-fade-in-up md:pl-4">
+                            <div className="inline-flex items-center gap-2 bg-yellow-500/20 border border-yellow-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+                                <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                                <span className="text-yellow-300 text-sm font-bold tracking-wide uppercase">
+                                    {settings?.landing_page?.hero_badge || ''}
+                                </span>
+                            </div>
 
-                        <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
-                            {settings?.landing_page?.hero_title?.includes('|') ? (
-                                <>
-                                    <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
-                                        {settings.landing_page.hero_title.split('|')[0]}
-                                    </span> <br />
-                                    <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#fbbf24' }}>
-                                        {settings.landing_page.hero_title.split('|')[1]}
-                                    </span>
-                                </>
-                            ) : (
-                                settings?.landing_page?.hero_title || (
+                            <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
+                                {settings?.landing_page?.hero_title?.includes('|') ? (
                                     <>
                                         <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
-                                            Siapkan Masa Depan
+                                            {settings.landing_page.hero_title.split('|')[0]}
                                         </span> <br />
                                         <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#fbbf24' }}>
-                                            Gemilang Buah Hati
+                                            {settings.landing_page.hero_title.split('|')[1]}
                                         </span>
                                     </>
-                                )
-                            )}
-                        </h1>
+                                ) : (
+                                    settings?.landing_page?.hero_title || ''
+                                )}
+                            </h1>
 
-                        <p className="text-lg md:text-xl mb-8 text-blue-100 leading-relaxed max-w-2xl">
-                            {settings?.landing_page?.hero_subtitle || `Bergabunglah dengan ${schoolName}. Sekolah berbasis digital dan karakter yang mencetak lulusan siap kuliah di PTN Favorit dan bersaing global.`}
-                        </p>
+                            <p className="text-lg md:text-xl mb-8 text-blue-100 leading-relaxed max-w-2xl">
+                                {settings?.landing_page?.hero_subtitle || ''}
+                            </p>
 
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <button
-                                onClick={onLogin}
-                                className="bg-yellow-500 hover:bg-yellow-400 text-blue-900 px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/30 group text-lg"
-                            >
-                                {settings?.landing_page?.hero_btn_text || 'Daftar Sekarang'} <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
-                            </button>
-                            {settings?.landing_page?.brochure_link && (
-                                <a
-                                    href={settings.landing_page.brochure_link}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white hover:text-blue-900 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2"
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <button
+                                    onClick={onLogin}
+                                    className="bg-yellow-500 hover:bg-yellow-400 text-blue-900 px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/30 group text-lg"
                                 >
-                                    <FileText size={20} /> Unduh Brosur
-                                </a>
-                            )}
-                        </div>
-
-                        <div className="mt-12 flex items-center gap-4 text-sm font-medium text-blue-200">
-                            <div className="flex -space-x-2">
-                                {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-blue-900 overflow-hidden">
-                                        <img
-                                            src={`https://i.pravatar.cc/100?img=${i + 10}`}
-                                            alt={`Avatar Pendaftar ${i}`}
-                                            loading="lazy"
-                                            decoding="async"
-                                            width="32"
-                                            height="32"
-                                        />
-                                    </div>
-                                ))}
+                                    {settings?.landing_page?.hero_btn_text || 'Daftar Sekarang'} <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
+                                </button>
+                                {settings?.landing_page?.brochure_link && (
+                                    <a
+                                        href={settings.landing_page.brochure_link}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white hover:text-blue-900 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2"
+                                    >
+                                        <FileText size={20} /> Unduh Brosur
+                                    </a>
+                                )}
                             </div>
-                            <p>Bergabung dengan <strong>500+ pendaftar</strong> lainnya hari ini.</p>
+
+                            <div className="mt-12 flex items-center gap-4 text-sm font-medium text-blue-200">
+                                <div className="flex -space-x-2">
+                                    {[1, 2, 3, 4].map(i => (
+                                        <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-blue-900 overflow-hidden">
+                                            <img
+                                                src={`https://i.pravatar.cc/100?img=${i + 10}`}
+                                                alt={`Avatar Pendaftar ${i}`}
+                                                loading="lazy"
+                                                decoding="async"
+                                                width="32"
+                                                height="32"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <p>Bergabung dengan <strong>500+ pendaftar</strong> lainnya hari ini.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </header>
+                </header>
+            )}
 
             {/* Statistics / Quota Section */}
-            <section className="relative z-20 -mt-16 pb-16">
-                <div className="container mx-auto px-4">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {statistics.map((stat, index) => (
-                            <div key={index} className="bg-white p-6 rounded-2xl shadow-xl border-b-4 border-yellow-500 text-center transform hover:-translate-y-1 transition duration-300">
-                                <div className="flex items-center justify-center mb-3 text-blue-600">
-                                    <stat.icon size={32} />
+            {!settings ? <StatsSkeleton /> : (
+                <section className="relative z-20 -mt-16 pb-16">
+                    <div className="container mx-auto px-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            {statistics.map((stat, index) => (
+                                <div key={index} className="bg-white p-6 rounded-2xl shadow-xl border-b-4 border-yellow-500 text-center transform hover:-translate-y-1 transition duration-300">
+                                    <div className="flex items-center justify-center mb-3 text-blue-600">
+                                        <stat.icon size={32} />
+                                    </div>
+                                    <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.count}</h3>
+                                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
                                 </div>
-                                <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.count}</h3>
-                                <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
 
             {/* Alur Pendaftaran */}
             <section id="flow" className="py-16 bg-white">
@@ -731,133 +764,139 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             </section>
 
             {/* Program Unggulan */}
-            <section id="programs" className="py-16 bg-gray-50">
-                <div className="container mx-auto px-4">
-                    <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
-                        <div className="max-w-xl">
-                            <span className="text-yellow-600 font-bold uppercase tracking-wider text-sm mb-2 block">Pilihan Jurusan</span>
-                            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Program Unggulan Kami</h2>
-                        </div>
-                        <button className="hidden md:block bg-white text-blue-900 px-6 py-2 rounded-full font-bold border border-gray-200 hover:shadow-md transition">Lihat Kurikulum</button>
-                    </div>
-
-                    <div
-                        ref={sliderRef}
-                        className={programsList.length > 3
-                            ? "flex overflow-x-auto gap-6 pb-8 pt-2 scrollbar-hide snap-x"
-                            : "grid md:grid-cols-3 gap-8"
-                        }
-                    >
-                        {programsList.map((prog, index) => (
-                            <div
-                                key={index}
-                                className={`bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-300 group ${programsList.length > 3 ? 'min-w-[320px] md:min-w-[380px] snap-center' : ''}`}
-                            >
-                                <div className="h-48 overflow-hidden relative">
-                                    <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition z-10"></div>
-                                    <img
-                                        src={prog.img}
-                                        alt={prog.title}
-                                        className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700"
-                                        loading="lazy"
-                                        decoding="async"
-                                        width="400"
-                                        height="300"
-                                    />
+            {
+                !settings ? <ProgramsSkeleton /> : (
+                    <section id="programs" className="py-16 bg-gray-50">
+                        <div className="container mx-auto px-4">
+                            <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
+                                <div className="max-w-xl">
+                                    <span className="text-yellow-600 font-bold uppercase tracking-wider text-sm mb-2 block">Pilihan Jurusan</span>
+                                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Program Unggulan Kami</h2>
                                 </div>
-                                <div className="p-8">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-3">{prog.title}</h3>
-                                    <p className="text-gray-600 mb-6 leading-relaxed text-sm line-clamp-3">{prog.desc}</p>
-                                    <button
-                                        onClick={() => setSelectedProgram(prog)}
-                                        className="inline-flex items-center text-blue-600 font-bold text-sm hover:gap-2 transition-all"
+                                <button className="hidden md:block bg-white text-blue-900 px-6 py-2 rounded-full font-bold border border-gray-200 hover:shadow-md transition">Lihat Kurikulum</button>
+                            </div>
+
+                            <div
+                                ref={sliderRef}
+                                className={programsList.length > 3
+                                    ? "flex overflow-x-auto gap-6 pb-8 pt-2 scrollbar-hide snap-x"
+                                    : "grid md:grid-cols-3 gap-8"
+                                }
+                            >
+                                {programsList.map((prog, index) => (
+                                    <div
+                                        key={index}
+                                        className={`bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-300 group ${programsList.length > 3 ? 'min-w-[320px] md:min-w-[380px] snap-center' : ''}`}
                                     >
-                                        Detail Program <ChevronRight size={16} />
+                                        <div className="h-48 overflow-hidden relative">
+                                            <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition z-10"></div>
+                                            <img
+                                                src={prog.img}
+                                                alt={prog.title}
+                                                className="w-full h-full object-cover transform group-hover:scale-110 transition duration-700"
+                                                loading="lazy"
+                                                decoding="async"
+                                                width="400"
+                                                height="300"
+                                            />
+                                        </div>
+                                        <div className="p-8">
+                                            <h3 className="text-xl font-bold text-gray-900 mb-3">{prog.title}</h3>
+                                            <p className="text-gray-600 mb-6 leading-relaxed text-sm line-clamp-3">{prog.desc}</p>
+                                            <button
+                                                onClick={() => setSelectedProgram(prog)}
+                                                className="inline-flex items-center text-blue-600 font-bold text-sm hover:gap-2 transition-all"
+                                            >
+                                                Detail Program <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                )
+            }
+
+            {/* Program Detail Modal */}
+            {
+                selectedProgram && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedProgram(null)}>
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden relative transform transition-all scale-100" onClick={(e) => e.stopPropagation()}>
+                            {/* Header with Image */}
+                            <div className="relative h-64 overflow-hidden">
+                                {selectedProgram.img ? (
+                                    <img src={selectedProgram.img} alt={selectedProgram.title} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-700"></div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+
+                                {/* Category Badge */}
+                                {selectedProgram.category && (
+                                    <div className="absolute top-6 left-6">
+                                        <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${selectedProgram.category === 'TK' ? 'bg-pink-500 text-white' :
+                                            selectedProgram.category === 'SD' ? 'bg-blue-500 text-white' :
+                                                selectedProgram.category === 'SMP' ? 'bg-purple-500 text-white' :
+                                                    selectedProgram.category === 'SMK' ? 'bg-orange-500 text-white' :
+                                                        'bg-gray-500 text-white'
+                                            }`}>
+                                            {selectedProgram.category}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Close Button */}
+                                <button
+                                    onClick={() => setSelectedProgram(null)}
+                                    className="absolute top-6 right-6 bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition backdrop-blur-sm z-20"
+                                    aria-label="Tutup Detail"
+                                >
+                                    <X size={24} />
+                                </button>
+
+                                {/* Title */}
+                                <div className="absolute bottom-6 left-6 right-6">
+                                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">{selectedProgram.title}</h2>
+                                    <p className="text-blue-100 text-sm">{selectedProgram.desc}</p>
+                                </div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-8 overflow-y-auto max-h-[calc(90vh-16rem)]">
+                                {selectedProgram.details ? (
+                                    <div className="prose prose-blue max-w-none">
+                                        <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                                            {selectedProgram.details}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 text-gray-400">
+                                        <BookOpen size={48} className="mx-auto mb-3 opacity-20" />
+                                        <p>Detail program belum tersedia</p>
+                                    </div>
+                                )}
+
+                                {/* CTA Button */}
+                                <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row gap-3">
+                                    <button
+                                        onClick={onLogin}
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition"
+                                    >
+                                        Daftar Sekarang
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedProgram(null)}
+                                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl transition"
+                                    >
+                                        Tutup
                                     </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* Program Detail Modal */}
-            {selectedProgram && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedProgram(null)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden relative transform transition-all scale-100" onClick={(e) => e.stopPropagation()}>
-                        {/* Header with Image */}
-                        <div className="relative h-64 overflow-hidden">
-                            {selectedProgram.img ? (
-                                <img src={selectedProgram.img} alt={selectedProgram.title} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-700"></div>
-                            )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-
-                            {/* Category Badge */}
-                            {selectedProgram.category && (
-                                <div className="absolute top-6 left-6">
-                                    <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${selectedProgram.category === 'TK' ? 'bg-pink-500 text-white' :
-                                        selectedProgram.category === 'SD' ? 'bg-blue-500 text-white' :
-                                            selectedProgram.category === 'SMP' ? 'bg-purple-500 text-white' :
-                                                selectedProgram.category === 'SMK' ? 'bg-orange-500 text-white' :
-                                                    'bg-gray-500 text-white'
-                                        }`}>
-                                        {selectedProgram.category}
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Close Button */}
-                            <button
-                                onClick={() => setSelectedProgram(null)}
-                                className="absolute top-6 right-6 bg-white/20 hover:bg-white/30 p-2 rounded-full text-white transition backdrop-blur-sm z-20"
-                                aria-label="Tutup Detail"
-                            >
-                                <X size={24} />
-                            </button>
-
-                            {/* Title */}
-                            <div className="absolute bottom-6 left-6 right-6">
-                                <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">{selectedProgram.title}</h2>
-                                <p className="text-blue-100 text-sm">{selectedProgram.desc}</p>
-                            </div>
-                        </div>
-
-                        {/* Content */}
-                        <div className="p-8 overflow-y-auto max-h-[calc(90vh-16rem)]">
-                            {selectedProgram.details ? (
-                                <div className="prose prose-blue max-w-none">
-                                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                                        {selectedProgram.details}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-center py-12 text-gray-400">
-                                    <BookOpen size={48} className="mx-auto mb-3 opacity-20" />
-                                    <p>Detail program belum tersedia</p>
-                                </div>
-                            )}
-
-                            {/* CTA Button */}
-                            <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row gap-3">
-                                <button
-                                    onClick={onLogin}
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition"
-                                >
-                                    Daftar Sekarang
-                                </button>
-                                <button
-                                    onClick={() => setSelectedProgram(null)}
-                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl transition"
-                                >
-                                    Tutup
-                                </button>
-                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Biaya Pendidikan (New Section) */}
             <section id="fees" className="py-16 bg-white">
@@ -1107,193 +1146,195 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             </section>
 
             {/* Admission Wave Section */}
-            {waves.length > 0 && (
-                <section id="waves" className="py-20 bg-slate-50 overflow-hidden">
-                    <div className="container mx-auto px-4">
-                        <div className="text-center max-w-2xl mx-auto mb-12">
-                            <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-3 block">Jadwal & Periode</span>
-                            <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">Gelombang Pendaftaran</h2>
-                            <p className="text-slate-600">Pantau periode pendaftaran aktif dan bersiaplah untuk gelombang selanjutnya agar tidak ketinggalan kuota.</p>
-                        </div>
+            {
+                waves.length > 0 && (
+                    <section id="waves" className="py-20 bg-slate-50 overflow-hidden">
+                        <div className="container mx-auto px-4">
+                            <div className="text-center max-w-2xl mx-auto mb-12">
+                                <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-3 block">Jadwal & Periode</span>
+                                <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">Gelombang Pendaftaran</h2>
+                                <p className="text-slate-600">Pantau periode pendaftaran aktif dan bersiaplah untuk gelombang selanjutnya agar tidak ketinggalan kuota.</p>
+                            </div>
 
-                        <div className="grid lg:grid-cols-12 gap-8 items-start">
-                            {/* Active Wave Card */}
-                            {(() => {
-                                const now = new Date();
-                                const activeWave = waves.find(w => {
-                                    const start = new Date(w.start_date);
-                                    const end = new Date(w.end_date);
-                                    end.setHours(23, 59, 59);
-                                    return now >= start && now <= end && w.active;
-                                }) || waves.find(w => w.active);
+                            <div className="grid lg:grid-cols-12 gap-8 items-start">
+                                {/* Active Wave Card */}
+                                {(() => {
+                                    const now = new Date();
+                                    const activeWave = waves.find(w => {
+                                        const start = new Date(w.start_date);
+                                        const end = new Date(w.end_date);
+                                        end.setHours(23, 59, 59);
+                                        return now >= start && now <= end && w.active;
+                                    }) || waves.find(w => w.active);
 
-                                const nextWave = waves.find(w => new Date(w.start_date) > now);
+                                    const nextWave = waves.find(w => new Date(w.start_date) > now);
 
-                                return (
-                                    <>
-                                        <div className={`${nextWave ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-6`}>
-                                            {activeWave ? (
-                                                <div className="bg-white rounded-3xl p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50 relative overflow-hidden group">
-                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+                                    return (
+                                        <>
+                                            <div className={`${nextWave ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-6`}>
+                                                {activeWave ? (
+                                                    <div className="bg-white rounded-3xl p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50 relative overflow-hidden group">
+                                                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
 
-                                                    <div className="relative z-10">
-                                                        <div className="flex flex-wrap items-center gap-3 mb-6">
-                                                            <div className="bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                                                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></div>
-                                                                Pendaftaran Sedang Berlangsung
-                                                            </div>
-                                                            <div className="bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
-                                                                TA {activeWave.year}
-                                                            </div>
-                                                        </div>
-
-                                                        <h3 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">{activeWave.name}</h3>
-                                                        <p className="text-slate-500 font-medium mb-8">Periode: {new Date(activeWave.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })} — {new Date(activeWave.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-
-                                                        <div className="grid sm:grid-cols-2 gap-8">
-                                                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 transition-all hover:shadow-md">
-                                                                <div className="flex items-center gap-3 mb-4 text-blue-600">
-                                                                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                                                                        <Clock size={20} />
-                                                                    </div>
-                                                                    <span className="font-bold text-sm uppercase tracking-wide">Sisa Waktu</span>
+                                                        <div className="relative z-10">
+                                                            <div className="flex flex-wrap items-center gap-3 mb-6">
+                                                                <div className="bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                                                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></div>
+                                                                    Pendaftaran Sedang Berlangsung
                                                                 </div>
-                                                                {(() => {
-                                                                    const end = new Date(activeWave.end_date);
-                                                                    end.setHours(23, 59, 59);
-                                                                    const diff = end - now;
-                                                                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                                                                <div className="bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                                                                    TA {activeWave.year}
+                                                                </div>
+                                                            </div>
 
-                                                                    return (
-                                                                        <div className="flex items-baseline gap-2">
-                                                                            <span className="text-4xl font-black text-slate-900">{days > 0 ? days : 0}</span>
-                                                                            <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Hari Lagi</span>
+                                                            <h3 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">{activeWave.name}</h3>
+                                                            <p className="text-slate-500 font-medium mb-8">Periode: {new Date(activeWave.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })} — {new Date(activeWave.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+
+                                                            <div className="grid sm:grid-cols-2 gap-8">
+                                                                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 transition-all hover:shadow-md">
+                                                                    <div className="flex items-center gap-3 mb-4 text-blue-600">
+                                                                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                                            <Clock size={20} />
                                                                         </div>
-                                                                    );
-                                                                })()}
-                                                            </div>
-
-                                                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 transition-all hover:shadow-md">
-                                                                <div className="flex items-center gap-3 mb-4 text-emerald-600">
-                                                                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                                                                        <Award size={20} />
+                                                                        <span className="font-bold text-sm uppercase tracking-wide">Sisa Waktu</span>
                                                                     </div>
-                                                                    <span className="font-bold text-sm uppercase tracking-wide">Status Kuota</span>
+                                                                    {(() => {
+                                                                        const end = new Date(activeWave.end_date);
+                                                                        end.setHours(23, 59, 59);
+                                                                        const diff = end - now;
+                                                                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+                                                                        return (
+                                                                            <div className="flex items-baseline gap-2">
+                                                                                <span className="text-4xl font-black text-slate-900">{days > 0 ? days : 0}</span>
+                                                                                <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Hari Lagi</span>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </div>
-                                                                <div className="space-y-4">
-                                                                    {branches.length > 0 ? (
-                                                                        branches.map((b, i) => {
-                                                                            const percent = b.quota > 0 ? Math.round((b.filled / b.quota) * 100) : 0;
-                                                                            let statusColor = "text-slate-500";
-                                                                            let statusText = "Tersedia";
 
-                                                                            if (percent >= 90) {
-                                                                                statusColor = "text-rose-600";
-                                                                                statusText = "Sangat Terbatas";
-                                                                            } else if (percent >= 70) {
-                                                                                statusColor = "text-amber-600";
-                                                                                statusText = "Hampir Penuh";
-                                                                            } else if (percent > 0) {
-                                                                                statusColor = "text-emerald-600";
-                                                                                statusText = "Sedang Berjalan";
-                                                                            }
+                                                                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 transition-all hover:shadow-md">
+                                                                    <div className="flex items-center gap-3 mb-4 text-emerald-600">
+                                                                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                                            <Award size={20} />
+                                                                        </div>
+                                                                        <span className="font-bold text-sm uppercase tracking-wide">Status Kuota</span>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        {branches.length > 0 ? (
+                                                                            branches.map((b, i) => {
+                                                                                const percent = b.quota > 0 ? Math.round((b.filled / b.quota) * 100) : 0;
+                                                                                let statusColor = "text-slate-500";
+                                                                                let statusText = "Tersedia";
 
-                                                                            return (
-                                                                                <div key={b.id || i} className={i !== 0 ? "pt-4 border-t border-slate-200/60" : ""}>
-                                                                                    <div className="flex justify-between items-end mb-1">
-                                                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{b.name}</span>
-                                                                                        <span className={`text-sm font-black ${statusColor}`}>{percent}%</span>
+                                                                                if (percent >= 90) {
+                                                                                    statusColor = "text-rose-600";
+                                                                                    statusText = "Sangat Terbatas";
+                                                                                } else if (percent >= 70) {
+                                                                                    statusColor = "text-amber-600";
+                                                                                    statusText = "Hampir Penuh";
+                                                                                } else if (percent > 0) {
+                                                                                    statusColor = "text-emerald-600";
+                                                                                    statusText = "Sedang Berjalan";
+                                                                                }
+
+                                                                                return (
+                                                                                    <div key={b.id || i} className={i !== 0 ? "pt-4 border-t border-slate-200/60" : ""}>
+                                                                                        <div className="flex justify-between items-end mb-1">
+                                                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{b.name}</span>
+                                                                                            <span className={`text-sm font-black ${statusColor}`}>{percent}%</span>
+                                                                                        </div>
+                                                                                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                                                            <div
+                                                                                                className={`h-full transition-all duration-1000 ${percent >= 90 ? 'bg-rose-500' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                                                                                style={{ width: `${Math.min(100, percent)}%` }}
+                                                                                            ></div>
+                                                                                        </div>
+                                                                                        <div className="flex justify-between items-center mt-1">
+                                                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Terisi: {b.filled} / {b.quota}</span>
+                                                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${statusColor}`}>{statusText}</span>
+                                                                                        </div>
                                                                                     </div>
-                                                                                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                                                                        <div
-                                                                                            className={`h-full transition-all duration-1000 ${percent >= 90 ? 'bg-rose-500' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                                                                            style={{ width: `${Math.min(100, percent)}%` }}
-                                                                                        ></div>
-                                                                                    </div>
-                                                                                    <div className="flex justify-between items-center mt-1">
-                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Terisi: {b.filled} / {b.quota}</span>
-                                                                                        <span className={`text-[9px] font-black uppercase tracking-widest ${statusColor}`}>{statusText}</span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        })
-                                                                    ) : (
-                                                                        <div className="text-4xl font-black text-slate-900">0%</div>
-                                                                    )}
+                                                                                );
+                                                                            })
+                                                                        ) : (
+                                                                            <div className="text-4xl font-black text-slate-900">0%</div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
 
-                                                        <div className="mt-8">
-                                                            <button
-                                                                onClick={onLogin}
-                                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all flex items-center justify-center gap-2 group"
-                                                            >
-                                                                Daftar di {activeWave.name}
-                                                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                                                            </button>
+                                                            <div className="mt-8">
+                                                                <button
+                                                                    onClick={onLogin}
+                                                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 transition-all flex items-center justify-center gap-2 group"
+                                                                >
+                                                                    Daftar di {activeWave.name}
+                                                                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-sm">
-                                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                                                        <Calendar size={32} />
+                                                ) : (
+                                                    <div className="bg-white rounded-3xl p-10 text-center border border-slate-100 shadow-sm">
+                                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                                                            <Calendar size={32} />
+                                                        </div>
+                                                        <h3 className="text-xl font-bold text-slate-800 mb-2">Pendaftaran Belum Dibuka</h3>
+                                                        <p className="text-slate-500">Saat ini pendaftaran belum tersedia. Pantau informasi gelombang selanjutnya di bawah.</p>
                                                     </div>
-                                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Pendaftaran Belum Dibuka</h3>
-                                                    <p className="text-slate-500">Saat ini pendaftaran belum tersedia. Pantau informasi gelombang selanjutnya di bawah.</p>
+                                                )}
+                                            </div>
+
+                                            {/* Next Wave Info */}
+                                            {nextWave && (
+                                                <div className="lg:col-span-5">
+                                                    <div className="bg-slate-900 text-white rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden h-full">
+                                                        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-10 -mt-10 blur-3xl"></div>
+                                                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
+
+                                                        <div className="relative z-10 flex flex-col h-full">
+                                                            <div className="mb-8">
+                                                                <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-1.5 inline-flex items-center gap-2 mb-4">
+                                                                    <Calendar size={14} className="text-blue-400" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
+                                                                </div>
+                                                                <h3 className="text-2xl font-black mb-2">Gelombang Berikutnya</h3>
+                                                                <p className="text-slate-400 text-sm">Persiapkan berkas Anda lebih awal untuk proses pendaftaran yang lebih lancar.</p>
+                                                            </div>
+
+                                                            <div className="mt-auto space-y-6">
+                                                                <div className="p-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
+                                                                    <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-1">{nextWave.name}</div>
+                                                                    <div className="text-xl font-black mb-3">Mulai {new Date(nextWave.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                                                                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                                                                        <Clock size={14} />
+                                                                        <span>Sesuai kalender akademik {nextWave.year}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const el = document.querySelector('#contact');
+                                                                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                                                    }}
+                                                                    className="w-full bg-white text-slate-900 font-black py-4 rounded-2xl hover:bg-blue-50 transition-colors text-sm"
+                                                                >
+                                                                    Hubungi Kami Untuk Info Detail
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
-                                        </div>
-
-                                        {/* Next Wave Info */}
-                                        {nextWave && (
-                                            <div className="lg:col-span-5">
-                                                <div className="bg-slate-900 text-white rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden h-full">
-                                                    <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-10 -mt-10 blur-3xl"></div>
-                                                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full -ml-10 -mb-10 blur-2xl"></div>
-
-                                                    <div className="relative z-10 flex flex-col h-full">
-                                                        <div className="mb-8">
-                                                            <div className="bg-white/10 backdrop-blur-md rounded-full px-4 py-1.5 inline-flex items-center gap-2 mb-4">
-                                                                <Calendar size={14} className="text-blue-400" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Coming Soon</span>
-                                                            </div>
-                                                            <h3 className="text-2xl font-black mb-2">Gelombang Berikutnya</h3>
-                                                            <p className="text-slate-400 text-sm">Persiapkan berkas Anda lebih awal untuk proses pendaftaran yang lebih lancar.</p>
-                                                        </div>
-
-                                                        <div className="mt-auto space-y-6">
-                                                            <div className="p-6 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
-                                                                <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-1">{nextWave.name}</div>
-                                                                <div className="text-xl font-black mb-3">Mulai {new Date(nextWave.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                                                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                                                    <Clock size={14} />
-                                                                    <span>Sesuai kalender akademik {nextWave.year}</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <button
-                                                                onClick={() => {
-                                                                    const el = document.querySelector('#contact');
-                                                                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                                                                }}
-                                                                className="w-full bg-white text-slate-900 font-black py-4 rounded-2xl hover:bg-blue-50 transition-colors text-sm"
-                                                            >
-                                                                Hubungi Kami Untuk Info Detail
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </>
-                                );
-                            })()}
+                                        </>
+                                    );
+                                })()}
+                            </div>
                         </div>
-                    </div>
-                </section>
-            )}
+                    </section>
+                )
+            }
 
             {/* FAQ Section */}
             <section id="faq" className="py-16 bg-white">
@@ -1350,53 +1391,55 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             </footer>
 
             {/* Popup Banner Modal */}
-            {showPopup && settings?.landing_page?.popup_image && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-                    onClick={() => setShowPopup(false)}
-                >
+            {
+                showPopup && settings?.landing_page?.popup_image && (
                     <div
-                        className="relative max-w-lg w-full animate-scale-in"
-                        onClick={e => e.stopPropagation()}
+                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+                        onClick={() => setShowPopup(false)}
                     >
-                        {/* Close Button */}
-                        <button
-                            onClick={() => setShowPopup(false)}
-                            className="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full shadow-xl flex items-center justify-center text-gray-600 hover:text-red-500 hover:bg-red-50 transition-all z-10 border border-gray-200"
-                            aria-label="Tutup Promo"
+                        <div
+                            className="relative max-w-lg w-full animate-scale-in"
+                            onClick={e => e.stopPropagation()}
                         >
-                            <X size={24} />
-                        </button>
-
-                        {/* Popup Image */}
-                        {settings.landing_page.popup_link ? (
-                            <a
-                                href={settings.landing_page.popup_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block"
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setShowPopup(false)}
+                                className="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full shadow-xl flex items-center justify-center text-gray-600 hover:text-red-500 hover:bg-red-50 transition-all z-10 border border-gray-200"
+                                aria-label="Tutup Promo"
                             >
+                                <X size={24} />
+                            </button>
+
+                            {/* Popup Image */}
+                            {settings.landing_page.popup_link ? (
+                                <a
+                                    href={settings.landing_page.popup_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block"
+                                >
+                                    <img
+                                        src={settings.landing_page.popup_image}
+                                        alt="Promo Banner"
+                                        className="w-full rounded-2xl shadow-2xl cursor-pointer hover:scale-[1.02] transition-transform"
+                                    />
+                                </a>
+                            ) : (
                                 <img
                                     src={settings.landing_page.popup_image}
                                     alt="Promo Banner"
-                                    className="w-full rounded-2xl shadow-2xl cursor-pointer hover:scale-[1.02] transition-transform"
+                                    className="w-full rounded-2xl shadow-2xl"
+                                    loading="lazy"
+                                    decoding="async"
                                 />
-                            </a>
-                        ) : (
-                            <img
-                                src={settings.landing_page.popup_image}
-                                alt="Promo Banner"
-                                className="w-full rounded-2xl shadow-2xl"
-                                loading="lazy"
-                                decoding="async"
-                            />
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <FloatingAssistant aiSettings={settings?.ai_assistant} apiKey={apiKey} realtimeData={realtimeData} />
-        </div>
+        </div >
     );
 };
 
