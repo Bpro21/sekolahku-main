@@ -16,9 +16,14 @@ serve(async (req) => {
     }
 
     try {
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (!serviceRoleKey) {
+            console.error("CRITICAL: SUPABASE_SERVICE_ROLE_KEY is missing from Secrets!")
+        }
+
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Use service role to bypass RLS for status updates
+            serviceRoleKey ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
         )
 
         const notification = await req.json()
@@ -53,17 +58,32 @@ serve(async (req) => {
         console.log(`Mapped status to: ${newStatus}`)
 
         if (newStatus === 'paid') {
-            // Get Invoice details first using the exact midtrans_order_id
+            // Get Invoice details first
             console.log(`Looking for invoice with midtrans_order_id: ${order_id}`)
-            const { data: inv, error: invError } = await supabase
+            let { data: inv, error: invError } = await supabase
                 .from('invoices')
                 .select('*')
                 .eq('midtrans_order_id', order_id)
-                .single()
+                .maybeSingle()
 
-            if (invError) {
-                console.error("Database Lookup Error:", invError.message)
-                return new Response(JSON.stringify({ error: "Invoice not found in database" }), { status: 404, headers: corsHeaders })
+            // FALLBACK: If midtrans_order_id search fails, try parsing the ID
+            if (!inv) {
+                console.log("Invoice not found by tracking ID. Trying ID parse fallback...")
+                const parts = order_id.split('-')
+                const invIdFromParse = parts.slice(0, -1).join('-') // UUID part
+
+                const { data: invFallback } = await supabase
+                    .from('invoices')
+                    .select('*')
+                    .ilike('id', `%${invIdFromParse}%`)
+                    .maybeSingle()
+
+                inv = invFallback
+            }
+
+            if (!inv) {
+                console.error("CRITICAL: Invoice NOT FOUND in database after all lookup attempts.")
+                return new Response(JSON.stringify({ error: "Invoice not found" }), { status: 404, headers: corsHeaders })
             }
 
             if (inv && inv.status !== 'paid') {

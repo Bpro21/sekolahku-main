@@ -60,10 +60,15 @@ serve(async (req) => {
         const midtransAuthHeader = btoa(`${config.midtrans_server_key}:`)
         const generatedOrderId = `${order_id.substring(0, 20)}-${Math.floor(Date.now() / 1000)}`
 
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (!serviceRoleKey) {
+            console.error("WARNING: SUPABASE_SERVICE_ROLE_KEY is missing from Secrets!")
+        }
+
         // 3. Save the generated Order ID to the invoice record (using admin/service role to bypass RLS)
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+            serviceRoleKey ?? Deno.env.get('SUPABASE_ANON_KEY') ?? ''
         )
 
         const { error: saveError } = await supabaseAdmin
