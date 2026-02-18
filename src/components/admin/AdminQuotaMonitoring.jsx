@@ -89,14 +89,42 @@ export default function AdminQuotaMonitoring({ showToast }) {
                 updated_at: new Date().toISOString()
             };
 
-            const { error } = await supabase.from('quota_allocations').upsert(payload, { onConflict: 'academic_year' });
-            if (error) throw error;
+            // Try upsert first (requires UNIQUE constraint on academic_year)
+            const { error } = await supabase
+                .from('quota_allocations')
+                .upsert(payload, { onConflict: 'academic_year' });
+
+            if (error) {
+                console.error('Upsert error:', error);
+
+                // Fallback: check if row exists, then insert or update manually
+                const { data: existing } = await supabase
+                    .from('quota_allocations')
+                    .select('id')
+                    .eq('academic_year', selectedYear)
+                    .maybeSingle();
+
+                if (existing?.id) {
+                    // Row exists → UPDATE
+                    const { error: updateError } = await supabase
+                        .from('quota_allocations')
+                        .update({ internal: payload.internal, indent_external: payload.indent_external, updated_at: payload.updated_at })
+                        .eq('academic_year', selectedYear);
+                    if (updateError) throw updateError;
+                } else {
+                    // Row doesn't exist → INSERT
+                    const { error: insertError } = await supabase
+                        .from('quota_allocations')
+                        .insert(payload);
+                    if (insertError) throw insertError;
+                }
+            }
 
             if (showToast) showToast('Target alokasi berhasil disimpan!', 'success');
             fetchData();
         } catch (e) {
-            console.error(e);
-            if (showToast) showToast('Gagal menyimpan target.', 'error');
+            console.error('Save allocation failed:', e);
+            if (showToast) showToast(`Gagal menyimpan target: ${e.message || 'Unknown error'}`, 'error');
         } finally {
             setIsSaving(false);
         }
