@@ -13,16 +13,35 @@ serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
 
     try {
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: corsHeaders })
+        }
+
+        const supabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: authHeader } } }
+        )
+
+        // 1. Verify user is logged in
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError || !user) {
+            console.error('Auth Error:', authError)
+            return new Response(JSON.stringify({ error: 'Unauthorized or Invalid JWT', details: authError?.message }), { status: 401, headers: corsHeaders })
+        }
+
         const { midtrans_order_id } = await req.json()
         if (!midtrans_order_id) throw new Error("Missing midtrans_order_id")
 
-        const supabase = createClient(
+        // Use service role client for database updates to ensure they succeed regardless of RLS
+        const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
         // 1. Get Midtrans Config
-        const { data: config, error: configError } = await supabase
+        const { data: config, error: configError } = await supabaseAdmin
             .from('payment_config')
             .select('*')
             .eq('id', 'main')
@@ -70,7 +89,7 @@ serve(async (req) => {
 
         // 4. Update DB if paid
         if (newStatus === 'paid') {
-            const { data: inv } = await supabase
+            const { data: inv } = await supabaseAdmin
                 .from('invoices')
                 .select('*')
                 .eq('midtrans_order_id', midtrans_order_id)
@@ -78,7 +97,7 @@ serve(async (req) => {
 
             if (inv && inv.status !== 'paid') {
                 console.log(`Updating Invoice ${inv.id} to paid via manual verify...`)
-                await supabase.from('invoices').update({
+                await supabaseAdmin.from('invoices').update({
                     status: 'paid',
                     paid_at: new Date().toISOString(),
                     payment_method: `Midtrans (${payment_type})`,
@@ -86,7 +105,7 @@ serve(async (req) => {
                 }).eq('id', inv.id)
 
                 // Update Registration
-                const { data: regData } = await supabase
+                const { data: regData } = await supabaseAdmin
                     .from('registrations')
                     .select('status, id')
                     .eq('id', inv.registration_id)
@@ -97,7 +116,7 @@ serve(async (req) => {
                     if (regData.status === 'lulus' || inv.description.toLowerCase().includes('daftar ulang')) {
                         newRegStatus = 'paid'
                     }
-                    await supabase.from('registrations').update({ status: newRegStatus }).eq('id', regData.id)
+                    await supabaseAdmin.from('registrations').update({ status: newRegStatus }).eq('id', regData.id)
                 }
             }
         }
