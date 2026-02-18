@@ -724,7 +724,7 @@ export default function PaymentHistory({ user, showToast }) {
                                     <h4 className="font-bold text-slate-800 text-lg">Rp {inv.amount.toLocaleString()}</h4>
                                     <p className="font-medium text-slate-600 text-sm">{inv.description}</p>
                                     <p className="text-xs text-slate-400 mt-1">{inv.student_name} • {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</p>
-                                    {inv.payment_method && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 mt-2 inline-block font-mono">Via {inv.payment_method}</span>}
+                                    {inv.payment_method && <span className="text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded text-indigo-600 mt-2 inline-block font-medium">{inv.payment_method}</span>}
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2 w-full md:w-auto">

@@ -34,7 +34,9 @@ serve(async (req) => {
             transaction_status,
             payment_type,
             transaction_id,
-            fraud_status
+            fraud_status,
+            va_numbers,
+            permata_va_number
         } = notification
 
         console.log(`Processing Order ID: ${order_id}, Status: ${transaction_status}`)
@@ -87,12 +89,23 @@ serve(async (req) => {
             }
 
             if (inv && inv.status !== 'paid') {
-                console.log(`Updating Invoice ${inv.id} to paid...`)
+                // Create a user-friendly payment method name
+                let displayPaymentMethod = payment_type
+                if (payment_type === 'bank_transfer') {
+                    const bank = va_numbers?.[0]?.bank || (permata_va_number ? 'permata' : 'VA')
+                    displayPaymentMethod = `Midtrans ${bank.toUpperCase()}`
+                } else if (payment_type === 'cstore') {
+                    displayPaymentMethod = `Midtrans (${notification.store?.toUpperCase() || 'Retail'})`
+                } else {
+                    displayPaymentMethod = `Midtrans ${payment_type.replace(/_/g, ' ').toUpperCase()}`
+                }
+
+                console.log(`Updating Invoice ${inv.id} to paid with method: ${displayPaymentMethod}...`)
                 // Update Invoice
                 const { error: updateError } = await supabase.from('invoices').update({
                     status: 'paid',
                     paid_at: new Date().toISOString(),
-                    payment_method: `Midtrans (${payment_type})`,
+                    payment_method: displayPaymentMethod,
                     transaction_id: transaction_id,
                     bank_destination: null // Clear manual bank if paid via Midtrans
                 }).eq('id', inv.id)

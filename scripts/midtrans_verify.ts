@@ -76,6 +76,8 @@ serve(async (req) => {
         const fraud_status = statusData.fraud_status
         const payment_type = statusData.payment_type
         const transaction_id = statusData.transaction_id
+        const va_numbers = statusData.va_numbers
+        const permata_va_number = statusData.permata_va_number
 
         // 3. Map status
         let newStatus = 'unpaid'
@@ -121,11 +123,22 @@ serve(async (req) => {
             }
 
             if (inv.status !== 'paid') {
-                console.log(`Updating Invoice ${inv.id} to paid via manual verify...`)
+                // Create a user-friendly payment method name
+                let displayPaymentMethod = payment_type
+                if (payment_type === 'bank_transfer') {
+                    const bank = va_numbers?.[0]?.bank || (permata_va_number ? 'permata' : 'VA')
+                    displayPaymentMethod = `Midtrans ${bank.toUpperCase()}`
+                } else if (payment_type === 'cstore') {
+                    displayPaymentMethod = `Midtrans (${statusData.store?.toUpperCase() || 'Retail'})`
+                } else {
+                    displayPaymentMethod = `Midtrans ${payment_type.replace(/_/g, ' ').toUpperCase()}`
+                }
+
+                console.log(`Updating Invoice ${inv.id} to paid via manual verify with method: ${displayPaymentMethod}...`)
                 const { error: updateError } = await supabaseAdmin.from('invoices').update({
                     status: 'paid',
                     paid_at: new Date().toISOString(),
-                    payment_method: `Midtrans (${payment_type})`,
+                    payment_method: displayPaymentMethod,
                     transaction_id: transaction_id,
                     bank_destination: null // Clear manual bank if paid via Midtrans
                 }).eq('id', inv.id)
