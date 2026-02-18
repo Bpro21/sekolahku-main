@@ -73,47 +73,49 @@ export default function PaymentHistory({ user, showToast }) {
         }
     };
 
+    // Fetch invoices
+    const fetchInvoices = async () => {
+        if (!user) return;
+        const { data } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        if (data) setInvoices(data);
+    };
+
+    // Fetch registrations
+    const fetchRegistrations = async () => {
+        if (!user) return;
+        const { data } = await supabase
+            .from('registrations')
+            .select('*')
+            .eq('user_id', user.id);
+        if (data) setRegistrations(data);
+    };
+
+    // Fetch config
+    const fetchConfig = async () => {
+        const { data } = await supabase
+            .from('payment_config')
+            .select('*')
+            .eq('id', 'main')
+            .maybeSingle();
+        if (data) setPayConfig(data);
+    };
+
+    // Fetch settings
+    const fetchSettings = async () => {
+        const { data } = await supabase
+            .from('app_settings')
+            .select('*')
+            .eq('id', 'main')
+            .maybeSingle();
+        if (data) setSettings(data);
+    };
+
     useEffect(() => {
         if (!user) return;
-
-        // Fetch invoices
-        const fetchInvoices = async () => {
-            const { data } = await supabase
-                .from('invoices')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-            if (data) setInvoices(data);
-        };
-
-        // Fetch registrations
-        const fetchRegistrations = async () => {
-            const { data } = await supabase
-                .from('registrations')
-                .select('*')
-                .eq('user_id', user.id);
-            if (data) setRegistrations(data);
-        };
-
-        // Fetch payment config
-        const fetchConfig = async () => {
-            const { data } = await supabase
-                .from('payment_config')
-                .select('*')
-                .eq('id', 'main')
-                .maybeSingle(); // Better for missing data
-            if (data) setPayConfig(data);
-        };
-
-        // Fetch settings
-        const fetchSettings = async () => {
-            const { data } = await supabase
-                .from('app_settings') // Fixed table name
-                .select('*')
-                .eq('id', 'main')
-                .maybeSingle();
-            if (data) setSettings(data);
-        };
 
         fetchInvoices();
         fetchRegistrations();
@@ -148,10 +150,8 @@ export default function PaymentHistory({ user, showToast }) {
                 const isScholarship = reg.is_scholarship || (reg.path_name && (reg.path_name.toLowerCase().includes('prestasi') || reg.path_name.toLowerCase().includes('yatim')));
                 const isIndenInternal = reg.is_indent || reg.is_internal || (reg.path_name && (reg.path_name.toLowerCase().includes('internal') || reg.path_name.toLowerCase().includes('indent')));
 
-                // 1. AUTO-GENERATE MISSING REGISTRATION/INDENT FEE (For existing users stuck)
                 if (reg.status === 'submitted' && !isScholarship) {
                     const regFeeId = `reg_fee_${reg.id}`;
-                    // Client-side quick check
                     const hasRegFee = invoices.find(inv => inv.id === regFeeId || (inv.registration_id === reg.id && inv.description?.toLowerCase().includes('pendaftaran')));
 
                     if (!hasRegFee) {
@@ -160,7 +160,6 @@ export default function PaymentHistory({ user, showToast }) {
                             const amount = units?.cost_reg || 0;
                             const desc = isIndenInternal ? `Biaya Pendaftaran Inden Internal - ${units?.name || 'Sekolah'}` : `Biaya Pendaftaran - ${units?.name || 'Sekolah'}`;
 
-                            // Serverside check to be safe
                             const { data: remoteExists } = await supabase.from('invoices').select('id').eq('id', regFeeId).maybeSingle();
 
                             if (!remoteExists) {
@@ -181,40 +180,24 @@ export default function PaymentHistory({ user, showToast }) {
                     }
                 }
 
-                // 2. AUTO-GENERATE RE-REGISTRATION FEE (Daftar Ulang)
                 if ((reg.status === 'lulus' || reg.status === 'accepted') && reg.agreements_verified === true && !isScholarship) {
                     const deterministicId = `rereg_${reg.id}`;
                     const exists = invoices.find(inv => inv.id === deterministicId || (inv.registration_id === reg.id && inv.description?.toLowerCase().includes('daftar ulang')));
 
                     if (!exists) {
                         try {
-                            // Double check with server
-                            const { data: existingInv } = await supabase
-                                .from('invoices')
-                                .select('id')
-                                .eq('id', deterministicId)
-                                .maybeSingle();
+                            const { data: existingInv } = await supabase.from('invoices').select('id').eq('id', deterministicId).maybeSingle();
                             if (existingInv) continue;
 
                             let amount = 0;
-                            // Try Unit Cost
                             if (reg.unit_id) {
-                                const { data: unitData } = await supabase
-                                    .from('units')
-                                    .select('cost_rereg')
-                                    .eq('id', reg.unit_id)
-                                    .maybeSingle();
-                                if (unitData?.cost_rereg) {
-                                    amount = parseInt(unitData.cost_rereg);
-                                }
+                                const { data: unitData } = await supabase.from('units').select('cost_rereg').eq('id', reg.unit_id).maybeSingle();
+                                if (unitData?.cost_rereg) amount = parseInt(unitData.cost_rereg);
                             }
-                            // Fallback to Global
-                            if (!amount && settings.reregistration_fee) {
-                                amount = parseInt(settings.reregistration_fee);
-                            }
+                            if (!amount && settings.reregistration_fee) amount = parseInt(settings.reregistration_fee);
 
                             if (amount > 0) {
-                                const invData = {
+                                await supabase.from('invoices').insert({
                                     id: deterministicId,
                                     registration_id: reg.id,
                                     student_name: reg.student_name,
@@ -224,14 +207,10 @@ export default function PaymentHistory({ user, showToast }) {
                                     created_at: new Date().toISOString(),
                                     due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
                                     user_id: user.id
-                                };
-
-                                await supabase.from('invoices').insert(invData);
+                                });
                                 showToast('Tagihan Daftar Ulang berhasil dibuat.', 'success');
                             }
-                        } catch (e) {
-                            console.error("Auto invoice creation failed", e);
-                        }
+                        } catch (e) { console.error("Auto invoice creation failed", e); }
                     }
                 }
             }
@@ -256,8 +235,8 @@ export default function PaymentHistory({ user, showToast }) {
 
             if (result.status === 'paid') {
                 showToast("Pembayaran Terdeteksi! Status Berhasil diperbarui.", "success");
-                // Real-time listener will fetch the latest data, but let's be sure
-                // fetchInvoices() or similar if available, or just rely on DB channel
+                fetchInvoices();
+                fetchRegistrations();
             } else if (result.status === 'pending') {
                 showToast("Pembayaran masih pending di sistem Midtrans.", "info");
             } else {

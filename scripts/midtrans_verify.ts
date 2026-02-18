@@ -89,20 +89,50 @@ serve(async (req) => {
 
         // 4. Update DB if paid
         if (newStatus === 'paid') {
-            const { data: inv } = await supabaseAdmin
+            console.log(`Looking for invoice with midtrans_order_id: ${midtrans_order_id}`)
+            let { data: inv, error: invError } = await supabaseAdmin
                 .from('invoices')
                 .select('*')
                 .eq('midtrans_order_id', midtrans_order_id)
-                .single()
+                .maybeSingle()
 
-            if (inv && inv.status !== 'paid') {
+            // FALLBACK: If midtrans_order_id search fails, try parsing the ID
+            if (!inv) {
+                console.log("Invoice not found by tracking ID. Trying ID parse fallback...")
+                const parts = midtrans_order_id.split('-')
+                const invIdFromParse = parts.slice(0, -1).join('-') // UUID part
+
+                const { data: invFallback } = await supabaseAdmin
+                    .from('invoices')
+                    .select('*')
+                    .ilike('id', `%${invIdFromParse}%`)
+                    .maybeSingle()
+
+                inv = invFallback
+            }
+
+            if (!inv) {
+                console.error("CRITICAL: Invoice NOT FOUND in database after all lookup attempts.")
+                return new Response(JSON.stringify({
+                    status: 'error',
+                    error: "Data invoice tidak ditemukan di database. Pastikan SQL sudah dijalankan.",
+                    midtrans_status: transaction_status
+                }), { status: 404, headers: corsHeaders })
+            }
+
+            if (inv.status !== 'paid') {
                 console.log(`Updating Invoice ${inv.id} to paid via manual verify...`)
-                await supabaseAdmin.from('invoices').update({
+                const { error: updateError } = await supabaseAdmin.from('invoices').update({
                     status: 'paid',
                     paid_at: new Date().toISOString(),
                     payment_method: `Midtrans (${payment_type})`,
                     transaction_id: transaction_id
                 }).eq('id', inv.id)
+
+                if (updateError) {
+                    console.error("Invoice Update Failed:", updateError.message)
+                    throw updateError
+                }
 
                 // Update Registration
                 const { data: regData } = await supabaseAdmin
@@ -116,8 +146,11 @@ serve(async (req) => {
                     if (regData.status === 'lulus' || inv.description.toLowerCase().includes('daftar ulang')) {
                         newRegStatus = 'paid'
                     }
+                    console.log(`Updating Registration ${regData.id} status to ${newRegStatus}...`)
                     await supabaseAdmin.from('registrations').update({ status: newRegStatus }).eq('id', regData.id)
                 }
+            } else {
+                console.log(`Invoice ${inv.id} is already paid.`)
             }
         }
 
