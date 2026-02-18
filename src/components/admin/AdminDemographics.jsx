@@ -32,7 +32,7 @@ export default function AdminDemographics({ showToast }) {
             }
 
             // Fetch Registrations
-            const { data: rData } = await supabase.from('registrations').select('id, academic_year, wave_name, province, city');
+            const { data: rData } = await supabase.from('registrations').select('id, academic_year, wave_name, biodata');
             if (rData) {
                 setRegistrations(rData);
             }
@@ -75,8 +75,9 @@ export default function AdminDemographics({ showToast }) {
         const cityMap = {};
 
         filtered.forEach(r => {
-            const prov = normalize(r.province);
-            const city = normalize(r.city);
+            const address = r.biodata?.address || {};
+            const prov = normalize(address.province);
+            const city = normalize(address.regency || address.city); // Support both naming conventions
 
             provMap[prov] = (provMap[prov] || 0) + 1;
             cityMap[city] = (cityMap[city] || 0) + 1;
