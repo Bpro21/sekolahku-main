@@ -375,6 +375,7 @@ fbq('track', 'PageView');`;
     };
 
     fetchAcademicYears();
+    fetchSettings(); // Critical: Ensure SEO settings load for anonymous users (Googlebot)
 
     // SUPABASE AUTH LISTENER
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
