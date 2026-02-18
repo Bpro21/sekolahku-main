@@ -60,13 +60,23 @@ serve(async (req) => {
         const midtransAuthHeader = btoa(`${config.midtrans_server_key}:`)
         const generatedOrderId = `${order_id.substring(0, 20)}-${Math.floor(Date.now() / 1000)}`
 
-        // 3. Save the generated Order ID to the invoice record for easier webhook lookup
-        // We use service role or just let it update if session is valid. 
-        // Actually, better to do it before fetching Snap token.
-        await supabase
+        // 3. Save the generated Order ID to the invoice record (using admin/service role to bypass RLS)
+        const supabaseAdmin = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        )
+
+        const { error: saveError } = await supabaseAdmin
             .from('invoices')
             .update({ midtrans_order_id: generatedOrderId })
             .eq('id', order_id)
+
+        if (saveError) {
+            console.error("Failed to save Midtrans Order ID into DB:", saveError.message)
+            // We continue anyway, but the webhook might fail later
+        } else {
+            console.log(`Saved midtrans_order_id ${generatedOrderId} for Invoice ${order_id}`)
+        }
 
         const response = await fetch(snapUrl, {
             method: 'POST',
