@@ -1,9 +1,6 @@
 import { supabase } from '../config/supabase';
 
-// This service interacts with the Supabase Edge Function to get a Snap Token
-// The Edge Function then talks to Midtrans API securely using the Server Key.
-
-const EDGE_FUNCTION_URL = 'https://uxqpcizthigbddcbjndi.supabase.co/functions/v1/midtrans-token';
+const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/midtrans-token`;
 
 export const MidtransService = {
     async getSnapToken(invoice) {
@@ -37,13 +34,40 @@ export const MidtransService = {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || "Gagal mendapatkan token pembayaran.");
+                throw new Error(errorData.message || errorData.error || "Gagal mendapatkan token pembayaran.");
             }
 
             const data = await response.json();
             return data.token; // The Snap Token
         } catch (error) {
             console.error("Midtrans Service Error:", error);
+            throw error;
+        }
+    },
+
+    async verifyPayment(midtransOrderId) {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("Silakan login kembali.");
+
+            const response = await fetch(`${EDGE_FUNCTION_URL.replace('token', 'verify')}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ midtrans_order_id: midtransOrderId })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Gagal memverifikasi pembayaran.");
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("Verify Payment Error:", error);
             throw error;
         }
     }

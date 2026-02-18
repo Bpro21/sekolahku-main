@@ -35,6 +35,7 @@ export default function PaymentHistory({ user, showToast }) {
     const [voucherCode, setVoucherCode] = useState('');
     const [appliedVoucher, setAppliedVoucher] = useState(null);
     const [calculating, setCalculating] = useState(false);
+    const [verifying, setVerifying] = useState(false);
 
     const handleDownloadPDF = async () => {
         try {
@@ -240,6 +241,34 @@ export default function PaymentHistory({ user, showToast }) {
             checkAndGenerateInvoices();
         }
     }, [registrations, invoices, settings, user]);
+
+    const handleVerify = async (inv) => {
+        if (!inv.midtrans_order_id) {
+            showToast("Pembayaran belum diproses melalui Midtrans.", "warning");
+            return;
+        }
+
+        try {
+            setVerifying(true);
+            showToast("Sedang mengecek status...", "info");
+
+            const result = await MidtransService.verifyPayment(inv.midtrans_order_id);
+
+            if (result.status === 'paid') {
+                showToast("Pembayaran Terdeteksi! Status Berhasil diperbarui.", "success");
+                // Real-time listener will fetch the latest data, but let's be sure
+                // fetchInvoices() or similar if available, or just rely on DB channel
+            } else if (result.status === 'pending') {
+                showToast("Pembayaran masih pending di sistem Midtrans.", "info");
+            } else {
+                showToast(`Status: ${result.midtrans_status || 'Belum dibayar'}`, "info");
+            }
+        } catch (error) {
+            showToast(error.message, "error");
+        } finally {
+            setVerifying(false);
+        }
+    };
 
     const handlePay = async (inv) => {
         if (!inv) return;
@@ -722,10 +751,23 @@ export default function PaymentHistory({ user, showToast }) {
                             <div className="flex flex-col items-end gap-2 w-full md:w-auto">
                                 <Badge status={inv.status} />
                                 {inv.status === 'pending' && !inv.is_installment && (
-                                    <div className="w-full md:w-auto flex flex-col items-center gap-1">
-                                        <Button onClick={() => handlePay(inv)} className="w-full md:w-auto text-xs py-2 px-4 shadow-orange-100 bg-orange-500 hover:bg-orange-600">
-                                            <CreditCard size={14} className="mr-1" /> Bayar Sekarang
-                                        </Button>
+                                    <div className="w-full md:w-auto flex flex-col items-center gap-2">
+                                        <div className="flex flex-col md:flex-row gap-2 w-full">
+                                            <Button onClick={() => handlePay(inv)} className="flex-1 text-xs py-2 px-4 shadow-orange-100 bg-orange-500 hover:bg-orange-600">
+                                                <CreditCard size={14} className="mr-1" /> Bayar Sekarang
+                                            </Button>
+                                            {inv.midtrans_order_id && (
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={() => handleVerify(inv)}
+                                                    disabled={verifying}
+                                                    className="flex-1 text-xs py-2 px-3 border-orange-200 text-orange-600 hover:bg-orange-50"
+                                                >
+                                                    <Clock size={14} className={`mr-1 ${verifying ? 'animate-spin' : ''}`} />
+                                                    {verifying ? 'Mengecek...' : 'Cek Pembayaran'}
+                                                </Button>
+                                            )}
+                                        </div>
                                         {payConfig.gateway_active === 'midtrans' && (
                                             <button
                                                 onClick={() => setActiveInvoice(inv)}
