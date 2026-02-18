@@ -58,6 +58,15 @@ serve(async (req) => {
             : 'https://app.sandbox.midtrans.com/snap/v1/transactions'
 
         const midtransAuthHeader = btoa(`${config.midtrans_server_key}:`)
+        const generatedOrderId = `${order_id.substring(0, 20)}-${Math.floor(Date.now() / 1000)}`
+
+        // 3. Save the generated Order ID to the invoice record for easier webhook lookup
+        // We use service role or just let it update if session is valid. 
+        // Actually, better to do it before fetching Snap token.
+        await supabase
+            .from('invoices')
+            .update({ midtrans_order_id: generatedOrderId })
+            .eq('id', order_id)
 
         const response = await fetch(snapUrl, {
             method: 'POST',
@@ -70,7 +79,7 @@ serve(async (req) => {
                 transaction_details: {
                     // Midtrans order_id limit is 50 chars. 
                     // Use shortened UUID + timestamp to ensure uniqueness for retries.
-                    order_id: `${order_id.substring(0, 20)}-${Math.floor(Date.now() / 1000)}`,
+                    order_id: generatedOrderId,
                     gross_amount: gross_amount
                 },
                 item_details,

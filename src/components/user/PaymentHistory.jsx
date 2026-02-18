@@ -722,9 +722,19 @@ export default function PaymentHistory({ user, showToast }) {
                             <div className="flex flex-col items-end gap-2 w-full md:w-auto">
                                 <Badge status={inv.status} />
                                 {inv.status === 'pending' && !inv.is_installment && (
-                                    <Button onClick={() => handlePay(inv)} className="w-full md:w-auto text-xs py-2 px-4 shadow-orange-100 bg-orange-500 hover:bg-orange-600">
-                                        <CreditCard size={14} className="mr-1" /> Bayar Sekarang
-                                    </Button>
+                                    <div className="w-full md:w-auto flex flex-col items-center gap-1">
+                                        <Button onClick={() => handlePay(inv)} className="w-full md:w-auto text-xs py-2 px-4 shadow-orange-100 bg-orange-500 hover:bg-orange-600">
+                                            <CreditCard size={14} className="mr-1" /> Bayar Sekarang
+                                        </Button>
+                                        {payConfig.gateway_active === 'midtrans' && (
+                                            <button
+                                                onClick={() => setActiveInvoice(inv)}
+                                                className="text-[10px] text-slate-400 hover:text-slate-600 underline"
+                                            >
+                                                Punya Bukti Transfer? Klik disini
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                                 {inv.status === 'installment_approved' && (
                                     <Button onClick={() => setViewInstallment(inv)} className="w-full md:w-auto text-xs py-2 px-4 shadow-blue-100 bg-blue-500 hover:bg-blue-600">
