@@ -682,7 +682,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                 </span>
                             </div>
 
-                            <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
+                            <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight hero-title-critical">
                                 {settings?.landing_page?.hero_title?.includes('|') ? (
                                     <>
                                         <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
@@ -1405,9 +1405,9 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         <div>
                             <h4 className="text-white font-bold mb-4">Kontak Panitia</h4>
                             <ul className="space-y-3 text-sm">
-                                <li className="flex items-center gap-3"><Phone size={16} /> {contactWA} (WA Only)</li>
-                                <li className="flex items-center gap-3"><Phone size={16} /> {contactOffice} (Kantor)</li>
-                                <li className="flex items-center gap-3"><Mail size={16} /> {contactEmail}</li>
+                                <li className="flex items-center gap-3"><Phone size={16} aria-hidden="true" /> {contactWA} (WA Only)</li>
+                                <li className="flex items-center gap-3"><Phone size={16} aria-hidden="true" /> {contactOffice} (Kantor)</li>
+                                <li className="flex items-center gap-3"><Mail size={16} aria-hidden="true" /> {contactEmail}</li>
                             </ul>
                         </div>
                         <div>

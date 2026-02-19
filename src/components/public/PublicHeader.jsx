@@ -59,13 +59,13 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
             <div className="bg-blue-900 text-white py-2 text-sm hidden md:block relative z-50">
                 <div className="container mx-auto px-4 flex justify-between items-center">
                     <div className="flex space-x-6">
-                        <span className="flex items-center gap-2"><Phone size={14} /> {contactOffice} (Hotline PPDB)</span>
-                        <span className="flex items-center gap-2"><Mail size={14} /> {contactEmail}</span>
+                        <span className="flex items-center gap-2"><Phone size={14} aria-hidden="true" /> {contactOffice} (Hotline PPDB)</span>
+                        <span className="flex items-center gap-2"><Mail size={14} aria-hidden="true" /> {contactEmail}</span>
                     </div>
                     <div className="flex space-x-4">
-                        <a href="#" className="hover:text-blue-300 transition" aria-label="Facebook"><Facebook size={16} /></a>
-                        <a href="#" className="hover:text-blue-300 transition" aria-label="Instagram"><Instagram size={16} /></a>
-                        <a href="#" className="hover:text-blue-300 transition" aria-label="Twitter"><Twitter size={16} /></a>
+                        <a href="#" className="hover:text-blue-300 transition" aria-label="Facebook"><Facebook size={16} aria-hidden="true" /></a>
+                        <a href="#" className="hover:text-blue-300 transition" aria-label="Instagram"><Instagram size={16} aria-hidden="true" /></a>
+                        <a href="#" className="hover:text-blue-300 transition" aria-label="Twitter"><Twitter size={16} aria-hidden="true" /></a>
                     </div>
                 </div>
             </div>
@@ -112,7 +112,7 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                                     className={`bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-full font-bold transition shadow-lg transform hover:scale-105 flex items-center gap-2`}
                                     aria-label={user ? 'Buka Dashboard' : 'Login atau Daftar'}
                                 >
-                                    {user ? <LayoutDashboard size={18} /> : <LogIn size={18} />}
+                                    {user ? <LayoutDashboard size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
                                     {user ? 'Dashboard' : 'Login / Daftar'}
                                 </button>
                             </div>
