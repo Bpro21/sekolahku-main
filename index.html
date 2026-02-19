@@ -6,11 +6,16 @@
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Preconnect for external domains (speeds up DNS + TLS) -->
+  <!-- DNS Prefetch (speeds up initial discovery of external assets) -->
+  <link rel="dns-prefetch" href="https://uxqpcizthigbddcbjndi.supabase.co" />
+  <link rel="dns-prefetch" href="https://images.unsplash.com" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+  <!-- Preconnect for external domains (feeds faster TLS/DNS) -->
+  <link rel="preconnect" href="https://uxqpcizthigbddcbjndi.supabase.co" />
   <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://i.pravatar.cc" crossorigin />
 
   <!-- Google Fonts: Inter - non-blocking with display=swap -->
   <link rel="preload" as="style"
@@ -22,8 +27,54 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   </noscript>
 
-  <!-- LCP Optimization: Hero background image is dynamic, preloading handled via component logic or removed to avoid unused warnings -->
+  <!-- LCP Optimization: Skeleton background colors for faster perceived load -->
+  <style>
+    :root {
+      --primary: #059669;
+      --bg: #f8fafc;
+    }
 
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    #root {
+      min-height: 100vh;
+    }
+
+    /* Critical Hero styles to prevent layout shift */
+    .hero-placeholder {
+      height: 100vh;
+      min-height: 600px;
+      background: linear-gradient(to right, #0f172a, #1e293b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .skeleton-box {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+      border-radius: 12px;
+    }
+
+    @keyframes skeleton-loading {
+      0% {
+        background-position: 200% 0;
+      }
+
+      100% {
+        background-position: -200% 0;
+      }
+    }
+  </style>
+
+  <!-- Midtrans Snap: loaded ONLY when needed via dynamic import in PaymentHistory component -->
+  <!-- Removed from global HTML to avoid blocking public page loads -->
   <!-- Primary Meta Tags -->
   <title>Sistem Informasi PSMB 2026 Terbaik - Solusi Pendaftaran Sekolah Digital Modern</title>
   <meta name="title" content="Sistem Informasi PSMB 2026 Terbaik - Solusi Pendaftaran Sekolah Digital Modern" />
@@ -33,34 +84,6 @@
   <!-- Google Verification -->
   <meta name="google-site-verification" content="Xu_8YmsaeH0-fmq4MZ5lfLItLeOYXCSbTEC6HXMCS5E" />
 
-  <!-- Critical inline styles to prevent layout shift before CSS loads -->
-  <style>
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: Inter, system-ui, -apple-system, sans-serif;
-      background: #f8fafc;
-    }
-
-    #root {
-      min-height: 100vh;
-    }
-
-    .app-loading {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-  </style>
-
-  <!-- Midtrans Snap: loaded ONLY when needed via dynamic import in PaymentHistory component -->
-  <!-- Removed from global HTML to avoid blocking public page loads -->
 </head>
 
 <body>

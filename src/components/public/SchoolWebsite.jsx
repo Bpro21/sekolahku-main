@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     GraduationCap, Users, Calendar, Award, ArrowRight,
@@ -6,23 +6,23 @@ import {
     Menu, X, ChevronRight, Star, CheckCircle, Clock, Home, FileText, BookOpen, DollarSign, HelpCircle, LogIn, LayoutDashboard, Grid, Send, Loader2, Smartphone, User, School, ChevronLeft, Trophy
 } from 'lucide-react';
 
-import FloatingAssistant from './FloatingAssistant';
+// Lazy load light components
+const FloatingAssistant = React.lazy(() => import('./FloatingAssistant'));
 import { supabase } from '../../config/supabase';
 import PublicHeader from './PublicHeader';
 
 const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     // Skeleton Components for Loading States
     const HeroSkeleton = () => (
-        <div className="relative h-screen min-h-[600px] flex items-center bg-slate-900 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-900 to-slate-800 animate-pulse" />
+        <div className="hero-placeholder relative h-screen min-h-[600px] flex items-center overflow-hidden">
             <div className="container mx-auto px-4 relative z-10 pt-20">
                 <div className="max-w-3xl md:pl-4">
-                    <div className="w-64 h-10 bg-slate-800 rounded-full mb-6 animate-pulse" />
-                    <div className="w-full h-20 bg-slate-800 rounded-xl mb-6 animate-pulse" />
-                    <div className="w-3/4 h-20 bg-slate-800 rounded-xl mb-6 animate-pulse" />
-                    <div className="w-full h-12 bg-slate-800 rounded-xl mb-8 animate-pulse" />
+                    <div className="skeleton-box w-64 h-10 mb-6" />
+                    <div className="skeleton-box w-full h-20 mb-6" />
+                    <div className="skeleton-box w-3/4 h-20 mb-6" />
+                    <div className="skeleton-box w-full h-12 mb-8" />
                     <div className="flex gap-4">
-                        <div className="w-48 h-14 bg-slate-800 rounded-full animate-pulse" />
+                        <div className="skeleton-box w-48 h-14" />
                     </div>
                 </div>
             </div>
@@ -58,6 +58,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     const [user, setUser] = useState(propUser || null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
+    const [mountAssistant, setMountAssistant] = useState(false);
     const [activeTab, setActiveTab] = useState('home');
     const [settings, setSettings] = useState(null);
     const [apiKey, setApiKey] = useState('');
@@ -77,60 +78,64 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
     const [loading, setLoading] = useState(false); // No blocking spinner - render immediately
 
     // Fetch Settings & APIs & Realtime Data (SUPABASE)
+    // Fetch Settings & APIs & Realtime Data (SUPABASE)
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // 1. Fetch Configs & Settings
-                const { data: settingsData } = await supabase.from('app_settings').select('*').eq('id', 'main').single();
-                if (settingsData) {
-                    setSettings(settingsData);
-                    // Set API key for FloatingAssistant chatbot
-                    if (settingsData.gemini_api_key) {
-                        setApiKey(settingsData.gemini_api_key);
-                    }
+                // Check cache first for instant load
+                const cachedData = sessionStorage.getItem('public_website_cache');
+                if (cachedData) {
+                    const parsed = JSON.parse(cachedData);
+                    setSettings(parsed.settings);
+                    setAcademicYears(parsed.academicYears);
+                    setActiveAcademicYear(parsed.activeYear);
+                    setWaves(parsed.waves);
+                    setBranches(parsed.branches);
+                    setRegistrations(parsed.registrations);
+                    setRealtimeData(parsed.realtimeData);
+                    if (parsed.settings?.gemini_api_key) setApiKey(parsed.settings.gemini_api_key);
                 }
 
-                // 2. Academic Years
-                const { data: ayData } = await supabase.from('academic_years').select('*');
-                let activeYear = null;
-                if (ayData) {
-                    setAcademicYears(ayData);
-                    activeYear = ayData.find(y => y.is_active) || ayData.find(y => y.is_default) || ayData[0];
-                    setActiveAcademicYear(activeYear);
-                }
+                // Parallelized Fetching
+                const [
+                    { data: settingsData },
+                    { data: ayData },
+                    { data: unitsData },
+                    { data: regsData }
+                ] = await Promise.all([
+                    supabase.from('app_settings').select('*').eq('id', 'main').single(),
+                    supabase.from('academic_years').select('*'),
+                    supabase.from('units').select('*'),
+                    supabase.from('registrations').select('*')
+                ]);
 
-                // 3. Waves (Fetch all for current academic year to show next wave)
+                if (!settingsData || !ayData) return;
+
+                // Process Academic Year
+                const activeYear = ayData.find(y => y.is_active) || ayData.find(y => y.is_default) || ayData[0];
+
+                // Fetch waves for active year (Waterfall but smaller)
                 const { data: wavesData } = await supabase
                     .from('waves')
                     .select('*')
                     .eq('year', activeYear?.year)
                     .order('start_date', { ascending: true });
-                if (wavesData) setWaves(wavesData);
 
-                // 4. Units
-                const { data: unitsData } = await supabase.from('units').select('*');
                 const fetchedBranches = unitsData || [];
-
-                const { data: regsData } = await supabase.from('registrations').select('*');
                 const fetchedRegs = regsData || [];
-                setRegistrations(fetchedRegs);
 
-                // 5. Process Stats (Dynamic Filled Counts)
+                // Process Stats
                 const TAKEN_STATUS = ['verified', 'verifying_payment', 'paid', 'paid_registration', 'accepted', 'lulus', 're_registration', 'student', 'psychotest_done', 'interview_accepted'];
-
                 const stats = { branches: {}, majors: {} };
+
                 fetchedRegs.forEach(r => {
                     const yearMatch = r.academic_year === activeYear?.year || r.academic_year_id === activeYear?.id;
                     if (!yearMatch || !TAKEN_STATUS.includes(r.status)) return;
-
-                    const uid = r.unit_id || r.unit_selection; // fallback to unit_selection if unit_id missing
+                    const uid = r.unit_id || r.unit_selection;
                     if (uid) {
                         stats.branches[uid] = (stats.branches[uid] || 0) + 1;
                         const m = (r.major || r.major_1 || '').toLowerCase();
-                        if (m) {
-                            const majorKey = `${uid}-${m}`;
-                            stats.majors[majorKey] = (stats.majors[majorKey] || 0) + 1;
-                        }
+                        if (m) stats.majors[`${uid}-${m}`] = (stats.majors[`${uid}-${m}`] || 0) + 1;
                     }
                 });
 
@@ -146,28 +151,29 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         }))
                     };
                 });
+
+                const summary = `Total Pendaftar: ${fetchedRegs.length}\n${branchesWithStats.map(b => `- ${b.name}: ${b.filled}/${b.quota}`).join('\n')}`;
+
+                // Update States
+                setSettings(settingsData);
+                setAcademicYears(ayData);
+                setActiveAcademicYear(activeYear);
+                if (wavesData) setWaves(wavesData);
+                setRegistrations(fetchedRegs);
                 setBranches(branchesWithStats);
-
-                // 5. Process Data
-                let payInfo = "Belum ada informasi biaya.";
-                // We might need a separate query for payment config if it's complex
-                // For now, assuming standard text or hardcoded
-
-                const branchText = branchesWithStats.map(b => {
-                    return `- Cabang ${b.name}: Kapasitas ${b.quota} Siswa. (Terisi: ${b.filled} siswa).`;
-                }).join('\n');
-
-                const summary = `
-                    DATA REALTIME (DARI DATABASE):
-                    ${payInfo}
-                    
-                    STATUS KUOTA CABANG:
-                    ${branchText}
-                    
-                    INFO LAINNYA:
-                    Total Pendaftar Keseluruhan: ${fetchedRegs.length} Siswa.
-                `;
                 setRealtimeData(summary);
+                if (settingsData.gemini_api_key) setApiKey(settingsData.gemini_api_key);
+
+                // Update Cache
+                sessionStorage.setItem('public_website_cache', JSON.stringify({
+                    settings: settingsData,
+                    academicYears: ayData,
+                    activeYear: activeYear,
+                    waves: wavesData || [],
+                    branches: branchesWithStats,
+                    registrations: fetchedRegs,
+                    realtimeData: summary
+                }));
 
             } catch (e) {
                 console.error("Failed to load public data", e);
@@ -213,6 +219,14 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
             window.removeEventListener('scroll', handleScroll);
             window.removeEventListener('app-settings-updated', handleSettingsUpdate);
         };
+    }, []);
+
+    // Delay mount heavy components (AI Assistant)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setMountAssistant(true);
+        }, 2500);
+        return () => clearTimeout(timer);
     }, []);
 
     // Handle popup display
@@ -472,7 +486,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <div className="absolute left-1/2 -top-8 -translate-x-1/2">
                         <button
                             onClick={() => user ? window.location.href = '/login' : onLogin()}
-                            className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full shadow-lg shadow-orange-500/30 flex items-center justify-center border-4 border-slate-50 dark:border-slate-800 transform transition-transform hover:scale-110 active:scale-95 group"
+                            className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 text-white rounded-full shadow-lg shadow-emerald-500/30 flex items-center justify-center border-4 border-slate-50 dark:border-slate-800 transform transition-transform hover:scale-110 active:scale-95 group"
                         >
                             {user ? (
                                 <LayoutDashboard size={28} className="ml-0.5 group-hover:animate-pulse" />
@@ -520,7 +534,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         </div>
 
                         <form onSubmit={handlePPDBSubmit} className="p-6 space-y-4">
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800 flex items-start gap-2">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 flex items-start gap-2">
                                 <Clock size={16} className="shrink-0 mt-0.5" />
                                 <span>Segera daftar! Kuota Gelombang 1 tersisa <strong>15 kursi</strong> lagi.</span>
                             </div>
@@ -661,9 +675,9 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
 
                     <div className="container mx-auto px-4 relative z-10 text-white pt-20">
                         <div className="max-w-3xl animate-fade-in-up md:pl-4">
-                            <div className="inline-flex items-center gap-2 bg-yellow-500/20 border border-yellow-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
-                                <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                                <span className="text-yellow-300 text-sm font-bold tracking-wide uppercase">
+                            <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span className="text-emerald-300 text-sm font-bold tracking-wide uppercase">
                                     {settings?.landing_page?.hero_badge || ''}
                                 </span>
                             </div>
@@ -674,7 +688,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                         <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
                                             {settings.landing_page.hero_title.split('|')[0]}
                                         </span> <br />
-                                        <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#fbbf24' }}>
+                                        <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#10b981' }}>
                                             {settings.landing_page.hero_title.split('|')[1]}
                                         </span>
                                     </>
@@ -692,7 +706,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <button
                                     onClick={onLogin}
-                                    className="bg-yellow-500 hover:bg-yellow-400 text-blue-900 px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/30 group text-lg"
+                                    className="bg-emerald-500 hover:bg-emerald-400 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 group text-lg"
                                 >
                                     {settings?.landing_page?.hero_btn_text || 'Daftar Sekarang'} <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
                                 </button>
@@ -736,7 +750,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <div className="container mx-auto px-4">
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                             {statistics.map((stat, index) => (
-                                <div key={index} className="bg-white p-6 rounded-2xl shadow-xl border-b-4 border-yellow-500 text-center transform hover:-translate-y-1 transition duration-300">
+                                <div key={index} className="bg-white p-6 rounded-2xl shadow-xl border-b-4 border-emerald-500 text-center transform hover:-translate-y-1 transition duration-300">
                                     <div className="flex items-center justify-center mb-3 text-blue-600">
                                         <stat.icon size={32} />
                                     </div>
@@ -788,7 +802,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         <div className="container mx-auto px-4">
                             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
                                 <div className="max-w-xl">
-                                    <span className="text-yellow-600 font-bold uppercase tracking-wider text-sm mb-2 block">Pilihan Jurusan</span>
+                                    <span className="text-emerald-600 font-bold uppercase tracking-wider text-sm mb-2 block">Pilihan Jurusan</span>
                                     <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Program Unggulan Kami</h2>
                                 </div>
                                 <button className="hidden md:block bg-white text-blue-900 px-6 py-2 rounded-full font-bold border border-gray-200 hover:shadow-md transition">Lihat Kurikulum</button>
@@ -1037,7 +1051,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                 <div className="grid md:grid-cols-2 gap-8">
                                     {/* Card Biaya Masuk */}
                                     <div className="border border-gray-200 rounded-2xl p-8 hover:shadow-xl transition relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 bg-yellow-500 text-blue-900 text-xs font-bold px-3 py-1 rounded-bl-lg">Sekali Bayar</div>
+                                        <div className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">Sekali Bayar</div>
                                         <h3 className="text-2xl font-bold text-gray-900 mb-2">Dana Sumbangan Pendidikan (DSP)</h3>
                                         <p className="text-gray-500 text-sm mb-6">Dibayarkan saat daftar ulang (bisa dicicil 3x).</p>
 
@@ -1138,7 +1152,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <button
                             onClick={onLogin}
-                            className="bg-yellow-500 hover:bg-yellow-400 text-blue-900 text-lg px-10 py-4 rounded-full font-bold shadow-xl transition transform hover:-translate-y-1"
+                            className="bg-emerald-500 hover:bg-emerald-400 text-white text-lg px-10 py-4 rounded-full font-bold shadow-xl transition transform hover:-translate-y-1"
                         >
                             {settings?.landing_page?.cta_btn1_text || 'Ambil Kuota Sekarang'}
                         </button>
@@ -1456,7 +1470,11 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                 )
             }
 
-            <FloatingAssistant aiSettings={settings?.ai_assistant} apiKey={apiKey} realtimeData={realtimeData} />
+            <Suspense fallback={null}>
+                {mountAssistant && (
+                    <FloatingAssistant aiSettings={settings?.ai_assistant} apiKey={apiKey} realtimeData={realtimeData} />
+                )}
+            </Suspense>
         </div >
     );
 };

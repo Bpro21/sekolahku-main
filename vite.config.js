@@ -11,19 +11,25 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Core React runtime
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // Supabase client
-          'vendor-supabase': ['@supabase/supabase-js'],
-          // Charts (heavy, admin-only)
-          'vendor-charts': ['recharts'],
-          // PDF/Canvas (heavy, admin-only)
-          'vendor-pdf': ['jspdf', 'html2canvas'],
-          // Icons
-          'vendor-icons': ['lucide-react'],
-          // Misc utilities
-          'vendor-misc': ['lodash', 'react-confetti', 'react-qr-code'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('scheduler')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('recharts') || id.includes('d3')) {
+              return 'vendor-charts';
+            }
+            if (id.includes('jspdf') || id.includes('html2canvas')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            return 'vendor-utils';
+          }
         },
       },
     },

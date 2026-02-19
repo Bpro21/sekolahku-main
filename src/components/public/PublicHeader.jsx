@@ -100,7 +100,7 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                                 <button
                                     key={link.name}
                                     onClick={() => scrollToSection(link.href)}
-                                    className={`font-medium hover:text-yellow-400 transition ${!scrolled && location.pathname === '/' ? 'text-white' : 'text-gray-700'}`}
+                                    className={`font-medium hover:text-emerald-400 transition ${!scrolled && location.pathname === '/' ? 'text-white' : 'text-gray-700'}`}
                                     aria-label={`Navigasi ke ${link.name}`}
                                 >
                                     {link.name}
@@ -109,7 +109,7 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
                             <div className="flex items-center gap-2 border-l border-white/20 pl-4 ml-2">
                                 <button
                                     onClick={() => user ? navigate(isAdmin ? '/admin' : '/dashboard') : navigate('/login')}
-                                    className={`bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-6 py-2 rounded-full font-bold transition shadow-lg transform hover:scale-105 flex items-center gap-2`}
+                                    className={`bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-full font-bold transition shadow-lg transform hover:scale-105 flex items-center gap-2`}
                                     aria-label={user ? 'Buka Dashboard' : 'Login atau Daftar'}
                                 >
                                     {user ? <LayoutDashboard size={18} /> : <LogIn size={18} />}
@@ -125,14 +125,14 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
             <div className={`md:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm py-3 px-4 transition-all duration-300 ${scrolled ? 'bg-white' : 'bg-white text-gray-900'}`}>
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2" onClick={() => navigate('/')}>
-                        <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                             {appName[0]}
                         </div>
                         <span className="font-bold text-lg text-gray-900 uppercase">{appName}</span>
                     </div>
                     <button
                         onClick={() => user ? navigate(isAdmin ? '/admin' : '/dashboard') : navigate('/login')}
-                        className="text-blue-600 font-bold text-sm bg-blue-50 px-3 py-1.5 rounded-full flex items-center gap-1"
+                        className="text-emerald-600 font-bold text-sm bg-emerald-50 px-3 py-1.5 rounded-full flex items-center gap-1"
                         aria-label={user ? 'Buka Dashboard' : 'Login atau Daftar'}
                     >
                         {user ? <LayoutDashboard size={14} /> : <LogIn size={14} />}

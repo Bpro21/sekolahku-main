@@ -26,7 +26,7 @@ export default function AdminWebsiteSettings({ showToast }) {
             hero_badge: '',
             hero_title: '',
             hero_title_color_1: '#ffffff',
-            hero_title_color_2: '#fbbf24',
+            hero_title_color_2: '#10b981',
             hero_subtitle: '',
             hero_btn_text: 'Daftar Sekarang',
             brochure_link: '',
