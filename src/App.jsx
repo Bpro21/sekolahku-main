@@ -19,8 +19,8 @@ import Header from './components/layout/Header';
 import ErrorBoundary from './classes/ErrorBoundary';
 import AuthScreen from './components/auth/AuthScreen';
 
-// Public Components - eager (needed for homepage SEO & fast load)
-import SchoolWebsite from './components/public/SchoolWebsite.jsx';
+// Public Components - lazy loaded for smaller initial bundle
+const SchoolWebsite = lazy(() => import('./components/public/SchoolWebsite.jsx'));
 import NotFound from './components/public/NotFound.jsx';
 
 // Page skeleton for Suspense fallback
@@ -509,7 +509,7 @@ fbq('track', 'PageView');`;
       {/* <VisitorLogger /> */}
 
       <Routes>
-        <Route path="/" element={<ErrorBoundary><SchoolWebsite user={user} isAdmin={isAdmin} onLogin={() => navigate('/login')} onDashboard={() => navigate(isAdmin ? '/admin' : '/dashboard')} /></ErrorBoundary>} />
+        <Route path="/" element={<ErrorBoundary><Suspense fallback={<div className="hero-placeholder"><div className="animate-pulse text-white/50">Memuat...</div></div>}><SchoolWebsite user={user} isAdmin={isAdmin} onLogin={() => navigate('/login')} onDashboard={() => navigate(isAdmin ? '/admin' : '/dashboard')} /></Suspense></ErrorBoundary>} />
         <Route path="/login" element={!user ? <ErrorBoundary><AuthScreen showToast={showToast} onBack={() => navigate('/')} /></ErrorBoundary> : <Navigate to={isAdmin ? '/admin' : '/dashboard'} />} />
         <Route path="/panduan" element={<Suspense fallback={<PageSkeleton />}><GuidePage user={user} isAdmin={isAdmin} /></Suspense>} />
 
