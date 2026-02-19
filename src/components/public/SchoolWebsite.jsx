@@ -657,92 +657,90 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                 </div>
             )}
 
-            {/* Hero Section */}
-            {!settings ? <HeroSkeleton /> : (
-                <header id="home" className="relative h-screen min-h-[600px] flex items-center -mt-20 md:-mt-24">
-                    <div className="absolute inset-0 z-0">
-                        <img
-                            src={settings?.landing_page?.hero_bg || "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&q=75"}
-                            alt="Gedung Sekolah"
-                            className="w-full h-full object-cover"
-                            fetchPriority="high"
-                            decoding="sync"
-                            width="1280"
-                            height="720"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/95 via-blue-900/80 to-blue-900/40"></div>
-                    </div>
+            {/* Hero Section - Always render immediately, overlay settings when available */}
+            <header id="home" className="relative h-screen min-h-[600px] flex items-center -mt-20 md:-mt-24">
+                <div className="absolute inset-0 z-0">
+                    <img
+                        src={settings?.landing_page?.hero_bg || "/hero.jpg"}
+                        alt="Gedung Sekolah"
+                        className="w-full h-full object-cover"
+                        fetchPriority="high"
+                        decoding="sync"
+                        width="1280"
+                        height="720"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/95 via-emerald-900/80 to-emerald-900/40"></div>
+                </div>
 
-                    <div className="container mx-auto px-4 relative z-10 text-white pt-20">
-                        <div className="max-w-3xl animate-fade-in-up md:pl-4">
-                            <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                                <span className="text-emerald-300 text-sm font-bold tracking-wide uppercase">
-                                    {settings?.landing_page?.hero_badge || ''}
-                                </span>
-                            </div>
+                <div className="container mx-auto px-4 relative z-10 text-white pt-20">
+                    <div className="max-w-3xl animate-fade-in-up md:pl-4">
+                        <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/50 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span className="text-emerald-300 text-sm font-bold tracking-wide uppercase">
+                                {settings?.landing_page?.hero_badge || ''}
+                            </span>
+                        </div>
 
-                            <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight hero-title-critical">
-                                {settings?.landing_page?.hero_title?.includes('|') ? (
-                                    <>
-                                        <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
-                                            {settings.landing_page.hero_title.split('|')[0]}
-                                        </span> <br />
-                                        <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#10b981' }}>
-                                            {settings.landing_page.hero_title.split('|')[1]}
-                                        </span>
-                                    </>
-                                ) : (
+                        <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight hero-title-critical">
+                            {settings?.landing_page?.hero_title?.includes('|') ? (
+                                <>
                                     <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
-                                        {settings?.landing_page?.hero_title || ''}
+                                        {settings.landing_page.hero_title.split('|')[0]}
+                                    </span> <br />
+                                    <span style={{ color: settings?.landing_page?.hero_title_color_2 || '#10b981' }}>
+                                        {settings.landing_page.hero_title.split('|')[1]}
                                     </span>
-                                )}
-                            </h1>
+                                </>
+                            ) : (
+                                <span style={{ color: settings?.landing_page?.hero_title_color_1 || '#ffffff' }}>
+                                    {settings?.landing_page?.hero_title || ''}
+                                </span>
+                            )}
+                        </h1>
 
-                            <p className="text-lg md:text-xl mb-8 text-blue-100 leading-relaxed max-w-2xl">
-                                {settings?.landing_page?.hero_subtitle || ''}
-                            </p>
+                        <p className="text-lg md:text-xl mb-8 text-blue-100 leading-relaxed max-w-2xl">
+                            {settings?.landing_page?.hero_subtitle || ''}
+                        </p>
 
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <button
-                                    onClick={onLogin}
-                                    className="bg-emerald-500 hover:bg-emerald-400 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 group text-lg"
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <button
+                                onClick={onLogin}
+                                className="bg-emerald-500 hover:bg-emerald-400 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 group text-lg"
+                            >
+                                {settings?.landing_page?.hero_btn_text || 'Daftar Sekarang'} <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
+                            </button>
+                            {settings?.landing_page?.brochure_link && (
+                                <a
+                                    href={settings.landing_page.brochure_link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white hover:text-blue-900 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2"
                                 >
-                                    {settings?.landing_page?.hero_btn_text || 'Daftar Sekarang'} <ArrowRight size={20} className="group-hover:translate-x-1 transition" />
-                                </button>
-                                {settings?.landing_page?.brochure_link && (
-                                    <a
-                                        href={settings.landing_page.brochure_link}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white hover:text-blue-900 text-white px-8 py-4 rounded-full font-bold transition flex items-center justify-center gap-2"
-                                    >
-                                        <FileText size={20} /> Unduh Brosur
-                                    </a>
-                                )}
-                            </div>
+                                    <FileText size={20} /> Unduh Brosur
+                                </a>
+                            )}
+                        </div>
 
-                            <div className="mt-12 flex items-center gap-4 text-sm font-medium text-blue-200">
-                                <div className="flex -space-x-2">
-                                    {[1, 2, 3, 4].map(i => (
-                                        <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-blue-900 overflow-hidden">
-                                            <img
-                                                src={`https://i.pravatar.cc/100?img=${i + 10}`}
-                                                alt={`Avatar Pendaftar ${i}`}
-                                                loading="lazy"
-                                                decoding="async"
-                                                width="32"
-                                                height="32"
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                                <p>Bergabung dengan <strong>500+ pendaftar</strong> lainnya hari ini.</p>
+                        <div className="mt-12 flex items-center gap-4 text-sm font-medium text-blue-200">
+                            <div className="flex -space-x-2">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="w-8 h-8 rounded-full bg-gray-300 border-2 border-blue-900 overflow-hidden">
+                                        <img
+                                            src={`https://i.pravatar.cc/100?img=${i + 10}`}
+                                            alt={`Avatar Pendaftar ${i}`}
+                                            loading="lazy"
+                                            decoding="async"
+                                            width="32"
+                                            height="32"
+                                        />
+                                    </div>
+                                ))}
                             </div>
+                            <p>Bergabung dengan <strong>500+ pendaftar</strong> lainnya hari ini.</p>
                         </div>
                     </div>
-                </header>
-            )}
+                </div>
+            </header>
 
             {/* Statistics / Quota Section */}
             {!settings ? <StatsSkeleton /> : (

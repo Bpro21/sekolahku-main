@@ -27,10 +27,8 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   </noscript>
 
-  <!-- LCP Optimization: Preload Hero Image with High Priority -->
-  <link rel="preload" as="image"
-    href="https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&q=75"
-    fetchpriority="high" />
+  <!-- LCP Optimization: Preload LOCAL Hero Image with High Priority -->
+  <link rel="preload" as="image" href="/hero.jpg" fetchpriority="high" />
 
   <!-- Critical Path CSS -->
   <style>
@@ -52,27 +50,61 @@
       min-height: 100vh;
     }
 
-    .hero-placeholder {
+    /* Critical Hero Shell - renders before JS loads */
+    .hero-shell {
+      position: relative;
       height: 100vh;
       min-height: 600px;
-      background: #0f172a;
       display: flex;
       align-items: center;
-      justify-content: center;
-      color: white;
-      text-align: center;
+      overflow: hidden;
+      background: #0f172a;
     }
 
-    .hero-title-critical {
-      font-size: 3rem;
+    .hero-shell img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .hero-shell .overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to right, rgba(6, 78, 59, 0.92), rgba(6, 78, 59, 0.75), rgba(6, 78, 59, 0.4));
+    }
+
+    .hero-shell .content {
+      position: relative;
+      z-index: 10;
+      color: white;
+      max-width: 48rem;
+      padding: 5rem 1rem 0;
+      margin: 0 auto;
+    }
+
+    .hero-shell h1 {
+      font-size: 2.5rem;
       font-weight: 800;
-      line-height: 1;
-      margin-bottom: 1.5rem;
+      line-height: 1.1;
+      margin: 0 0 1rem;
+    }
+
+    .hero-shell p {
+      font-size: 1rem;
+      opacity: 0.85;
+      line-height: 1.6;
+      margin: 0;
     }
 
     @media (min-width: 768px) {
-      .hero-title-critical {
-        font-size: 4.5rem;
+      .hero-shell h1 {
+        font-size: 4rem;
+      }
+
+      .hero-shell .content {
+        padding: 5rem 2rem 0;
       }
     }
   </style>
@@ -89,7 +121,18 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <!-- SSR-like shell: renders IMMEDIATELY before JS loads -->
+  <div id="root">
+    <div class="hero-shell">
+      <img src="/hero.jpg" alt="Gedung Sekolah" width="1280" height="720" fetchpriority="high" decoding="sync" />
+      <div class="overlay"></div>
+      <div class="content">
+        <h1>Siapkan Masa Depan<br />Gemilang Buah Hati</h1>
+        <p>Bergabunglah dengan Sekolah Islam Terpadu. Dapatkan fasilitas terbaik dan kurikulum yang memadukan IPTEK
+          dengan IMTAQ untuk masa depan putra-putri Anda.</p>
+      </div>
+    </div>
+  </div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 
