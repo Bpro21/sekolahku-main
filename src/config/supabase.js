@@ -6,4 +6,15 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'MASUKKAN_SUPABASE_URL_DISINI';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'MASUKKAN_SUPABASE_ANON_KEY_DISINI';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+    },
+    realtime: {
+        params: {
+            eventsPerSecond: 10
+        }
+    }
+});

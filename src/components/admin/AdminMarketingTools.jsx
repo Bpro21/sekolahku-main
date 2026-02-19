@@ -477,7 +477,7 @@ export default function AdminMarketingTools({ showToast }) {
                             <PieChart size={18} className="text-slate-400" /> Analisa Keuangan
                         </h3>
                         <div className="flex-1 w-full min-h-0">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                 <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" className="dark:opacity-10" />
                                     <XAxis type="number" hide />
