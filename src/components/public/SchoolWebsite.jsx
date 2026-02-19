@@ -647,8 +647,8 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                 <div className="relative z-10">
                                     <h3 className="font-bold text-lg mb-1">Butuh Bantuan?</h3>
                                     <p className="text-blue-100 text-sm mb-4">Tim admin kami siap membantu Anda 24/7 via WhatsApp.</p>
-                                    <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full flex items-center justify-center gap-2 transition">
-                                        <Phone size={16} /> Chat Admin
+                                    <button className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full flex items-center justify-center gap-2 transition" aria-label="Hubungi Admin via WhatsApp">
+                                        <Phone size={16} aria-hidden="true" /> Chat Admin
                                     </button>
                                 </div>
                             </div>
@@ -751,7 +751,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                             {statistics.map((stat, index) => (
                                 <div key={index} className="bg-white p-6 rounded-2xl shadow-xl border-b-4 border-emerald-500 text-center transform hover:-translate-y-1 transition duration-300">
-                                    <div className="flex items-center justify-center mb-3 text-blue-600">
+                                    <div className="flex items-center justify-center mb-3 text-blue-600" aria-hidden="true">
                                         <stat.icon size={32} />
                                     </div>
                                     <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.count}</h3>
@@ -1006,7 +1006,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                 {/* Branch Name Badge */}
                                 <div className="text-center mb-6 flex flex-col items-center gap-2">
                                     <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-semibold">
-                                        <School size={16} />
+                                        <School size={16} aria-hidden="true" />
                                         {selectedBranch.name}
                                         {activeAcademicYear && <span className="text-blue-500 font-normal">({activeAcademicYear.year})</span>}
                                     </span>
@@ -1101,7 +1101,7 @@ const SchoolWebsite = ({ user: propUser, isAdmin, onLogin }) => {
                                             {(displaySppIncludes && displaySppIncludes.length > 0) ? (
                                                 displaySppIncludes.map((item, i) => (
                                                     <li key={i} className="flex items-center gap-3 text-sm text-gray-700">
-                                                        <CheckCircle size={16} className="text-green-500 shrink-0" />
+                                                        <CheckCircle size={16} className="text-green-500 shrink-0" aria-hidden="true" />
                                                         {item}
                                                     </li>
                                                 ))

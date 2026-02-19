@@ -27,10 +27,15 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   </noscript>
 
-  <!-- LCP Optimization: Skeleton background colors for faster perceived load -->
+  <!-- LCP Optimization: Preload Hero Image -->
+  <link rel="preload" as="image"
+    href="https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&auto=format&fit=crop&w=1280&q=75" />
+
+  <!-- Critical Path CSS -->
   <style>
     :root {
-      --primary: #059669;
+      --primary: #10b981;
+      --primary-dark: #059669;
       --bg: #f8fafc;
     }
 
@@ -39,47 +44,28 @@
       padding: 0;
       background: var(--bg);
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
     }
 
     #root {
       min-height: 100vh;
     }
 
-    /* Critical Hero styles to prevent layout shift */
     .hero-placeholder {
       height: 100vh;
       min-height: 600px;
-      background: linear-gradient(to right, #0f172a, #1e293b);
+      background: #0f172a;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-
-    .skeleton-box {
-      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-      background-size: 200% 100%;
-      animation: skeleton-loading 1.5s infinite;
-      border-radius: 12px;
-    }
-
-    @keyframes skeleton-loading {
-      0% {
-        background-position: 200% 0;
-      }
-
-      100% {
-        background-position: -200% 0;
-      }
-    }
   </style>
 
-  <!-- Midtrans Snap: loaded ONLY when needed via dynamic import in PaymentHistory component -->
-  <!-- Removed from global HTML to avoid blocking public page loads -->
   <!-- Primary Meta Tags -->
-  <title>Sistem Informasi PSMB 2026 Terbaik - Solusi Pendaftaran Sekolah Digital Modern</title>
-  <meta name="title" content="Sistem Informasi PSMB 2026 Terbaik - Solusi Pendaftaran Sekolah Digital Modern" />
+  <title>Sistem Informasi PSMB 2026 - Pendaftaran Sekolah Digital Modern</title>
+  <meta name="title" content="Sistem Informasi PSMB 2026 - Pendaftaran Sekolah Digital Modern" />
   <meta name="description"
-    content="Optimalkan penerimaan siswa baru dengan Aplikasi PPDB/PSB 2026 super lengkap. Dilengkapi fitur formulir kustom, verifikasi berkas otomatis, integrasi pembayaran digital (e-wallet/VA), dan laporan real-time." />
+    content="Aplikasi PPDB & PSMB Online 2026 Terpadu. Fitur lengkap: formulir kustom, verifikasi berkas, integrasi pembayaran VA/E-Wallet, dan laporan real-time untuk sekolah modern." />
 
   <!-- Google Verification -->
   <meta name="google-site-verification" content="Xu_8YmsaeH0-fmq4MZ5lfLItLeOYXCSbTEC6HXMCS5E" />

@@ -124,8 +124,8 @@ const PublicHeader = ({ settings, user, isAdmin, onLogin, activeTab: initialActi
             {/* Mobile Top Bar - Only on non-home pages or when needed */}
             <div className={`md:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md shadow-sm py-3 px-4 transition-all duration-300 ${scrolled ? 'bg-white' : 'bg-white text-gray-900'}`}>
                 <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2" onClick={() => navigate('/')}>
-                        <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')} role="button" aria-label={`Kembali ke beranda ${appName}`}>
+                        <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg" aria-hidden="true">
                             {appName[0]}
                         </div>
                         <span className="font-bold text-lg text-gray-900 uppercase">{appName}</span>
